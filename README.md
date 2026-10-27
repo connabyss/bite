@@ -1,8 +1,33 @@
 # Bite
 
-**A referee for AI coding agents.** Bite lets an agent hunt and fix bugs in a throwaway copy of your project, and only calls a fix "proven" when a test fails without the fix and passes with it. Everything else lands in a morning report for a person to look at.
+**A proof of concept for an AI referee tool: it checks whether what a coding agent says is done is actually true.**
+
+Bite turns an agent's "fixed" claim into a small test, runs the test itself, and shows a result only when a second, independent check agrees that the test is fair. It also hunts and fixes bugs in a throwaway copy of a project, and calls a fix "proven" only when a test fails without it and passes with it.
 
 The code isn't public yet. This page shows what it has found so far.
+
+## A real example: a fix that wasn't
+
+In [fellowapp/prosemirror-py](https://github.com/fellowapp/prosemirror-py), commit `3614c96` (co-authored by Claude) says:
+
+> fix: add weakref callback to clean up resolve cache entries
+>
+> The cache used dict keyed by id(doc) with no cleanup, causing a slow memory leak in long-running processes. Added a weakref finalizer callback that removes the cache entry when the doc is garbage collected.
+
+Bite wrote this test of that claim and ran it:
+
+```python
+def test_cache_entry_removed_after_doc_gc():
+    resolvedpos._resolve_cache.clear()
+    d = doc(p("hello"))
+    ResolvedPos.resolve_cached(d, 2)
+    assert len(resolvedpos._resolve_cache) == 1
+    del d
+    gc.collect()
+    assert len(resolvedpos._resolve_cache) == 0   # fails: 1 == 0
+```
+
+It fails on that commit and on today's code. The cache keeps each document alive through its cached positions, so the cleanup callback never runs. A standalone check on today's code found that after 20,000 documents are resolved and dropped, the cache still holds all 20,000, using 35 MB. Reported upstream with a repro and a tested fix: [prosemirror-py #335](https://github.com/fellowapp/prosemirror-py/issues/335).
 
 ## Bugs it found in real open-source projects
 
@@ -10,23 +35,23 @@ Each one was reproduced with a standalone script in a clean environment before i
 
 | Project | Report | What happened |
 |---|---|---|
+| prosemirror-py | [#335](https://github.com/fellowapp/prosemirror-py/issues/335) | The memory leak above. Reported, waiting for a reply. |
 | srptools | [#13](https://github.com/idlesign/srptools/issues/13) | 4 bugs. The maintainer fixed all 4 and closed it the same day. |
-| pyclibrary | [#92](https://github.com/MatthieuDartiailh/pyclibrary/issues/92) | 7 bugs. The maintainer offered to review a PR for each one. First PR: [#93](https://github.com/MatthieuDartiailh/pyclibrary/pull/93). |
+| pyclibrary | [#92](https://github.com/MatthieuDartiailh/pyclibrary/issues/92) | 7 bugs. The maintainer offered to review a PR for each one. The first, [#93](https://github.com/MatthieuDartiailh/pyclibrary/pull/93), was reviewed and merged. |
 | resolve-robotics-uri-py | [#26](https://github.com/ami-iit/resolve-robotics-uri-py/issues/26) | Reported, waiting for a reply. |
 | mypy_boto3_builder | [#395](https://github.com/youtype/mypy_boto3_builder/issues/395) | Reported, waiting for a reply. |
 | drf-pydantic | [#51](https://github.com/georgebv/drf-pydantic/issues/51) | Reported, waiting for a reply. |
 
-## How good is it? (honest numbers)
+## Limitations (honest numbers)
 
-Test: 10 open-source projects, each picked by a fixed rule, one night of Bite each. Two separate AI judges then read Bite's claims without knowing which section of the report each claim came from.
+**Checking "fixed" claims.** Bite tested 76 claims from Claude-made commits in 9 open-source projects, all picked by a fixed rule. It showed 3 false "done" claims, and all 3 were real. One is the leak above. The other two were minor, and the projects' own next commits fixed exactly those bugs. 7 of the 9 projects had none: on well-reviewed code, the agents' claims mostly held. The second check threw out 10 failing tests that weren't fair.
 
-- **Proven fixes: 21 of 22 were real bugs**, according to both judges. Neither judge rated any fix as wrong.
-- The judges agreed with each other on 93% of claims.
-- **Weak spot:** each project had a bug its maintainers fixed soon after. Bite found only **1 of those 10**. It is good at finding real bugs, but not yet the specific ones maintainers hit next.
+**Hunting bugs overnight.** 10 projects, one night each, with two AI judges reading the claims blind:
+- **Proven fixes: 21 of 22 were real bugs**, according to both judges. Neither judge rated any fix as wrong. The judges agreed on 93% of claims.
+- **Weak spot:** each project had a bug its maintainers fixed soon after. Bite found only **1 of those 10**.
 
-Limits: 10 projects is small, the judges read code but did not run it, and the judges are AI models too. A human spot-check would make this stronger.
+These are small samples. The judges are AI models that read the code without running it. The only human checks so far are the maintainers' fixes and merges above.
 
 ## Early access
 
 Want to try Bite on your own project? [Open an issue](../../issues/new) and say a little about the project.
-
