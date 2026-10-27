@@ -41,6 +41,7 @@ Each one was reproduced with a standalone script in a clean environment before i
 | resolve-robotics-uri-py | [#26](https://github.com/ami-iit/resolve-robotics-uri-py/issues/26) | Reported, waiting for a reply. |
 | mypy_boto3_builder | [#395](https://github.com/youtype/mypy_boto3_builder/issues/395) | Reported, waiting for a reply. |
 | drf-pydantic | [#51](https://github.com/georgebv/drf-pydantic/issues/51) | Reported, waiting for a reply. |
+| python-vcr-tests | [#18](https://github.com/keboola/python-vcr-tests/issues/18) | A Claude commit said its database recorder captures every query; only the last per cursor is saved. Fix sent as [#19](https://github.com/keboola/python-vcr-tests/pull/19), waiting for review. |
 | marshmallow-fastoneofschema | [#1](https://github.com/Kalepa/marshmallow-fastoneofschema/issues/1) | 3 bugs. Reported, waiting for a reply. |
 
 ## Limitations (honest numbers)
