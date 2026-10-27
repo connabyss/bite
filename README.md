@@ -27,7 +27,7 @@ def test_cache_entry_removed_after_doc_gc():
     assert len(resolvedpos._resolve_cache) == 0   # fails: 1 == 0
 ```
 
-It fails on that commit and on today's code. The cache keeps each document alive through its cached positions, so the cleanup callback never runs. A standalone check on today's code found that after 20,000 documents are resolved and dropped, the cache still holds all 20,000, using 35 MB. Reported upstream with a repro and a tested fix: [prosemirror-py #335](https://github.com/fellowapp/prosemirror-py/issues/335).
+It fails on that commit and on today's code. The cache keeps each document alive through its cached positions, so the cleanup callback never runs. A standalone check on today's code found that after 20,000 documents are resolved and dropped, the cache still holds all 20,000, using 35 MB. Reported upstream with a repro ([prosemirror-py #335](https://github.com/fellowapp/prosemirror-py/issues/335)), and a tested fix is open as [#336](https://github.com/fellowapp/prosemirror-py/pull/336).
 
 ## Bugs it found in real open-source projects
 
@@ -35,9 +35,9 @@ Each one was reproduced with a standalone script in a clean environment before i
 
 | Project | Report | What happened |
 |---|---|---|
-| prosemirror-py | [#335](https://github.com/fellowapp/prosemirror-py/issues/335) | The memory leak above. Reported, waiting for a reply. |
+| prosemirror-py | [#335](https://github.com/fellowapp/prosemirror-py/issues/335) | The memory leak above. Fix sent as [#336](https://github.com/fellowapp/prosemirror-py/pull/336), waiting for review. |
 | srptools | [#13](https://github.com/idlesign/srptools/issues/13) | 4 bugs. The maintainer fixed all 4 and closed it the same day. |
-| pyclibrary | [#92](https://github.com/MatthieuDartiailh/pyclibrary/issues/92) | 7 bugs. The maintainer offered to review a PR for each one. The first, [#93](https://github.com/MatthieuDartiailh/pyclibrary/pull/93), was reviewed and merged. |
+| pyclibrary | [#92](https://github.com/MatthieuDartiailh/pyclibrary/issues/92) | 7 bugs. The maintainer offered to review a PR for each one. 5 are reviewed and merged so far: [#93](https://github.com/MatthieuDartiailh/pyclibrary/pull/93), [#94](https://github.com/MatthieuDartiailh/pyclibrary/pull/94), [#95](https://github.com/MatthieuDartiailh/pyclibrary/pull/95), [#96](https://github.com/MatthieuDartiailh/pyclibrary/pull/96), [#98](https://github.com/MatthieuDartiailh/pyclibrary/pull/98). |
 | resolve-robotics-uri-py | [#26](https://github.com/ami-iit/resolve-robotics-uri-py/issues/26) | Reported, waiting for a reply. |
 | mypy_boto3_builder | [#395](https://github.com/youtype/mypy_boto3_builder/issues/395) | Reported, waiting for a reply. |
 | drf-pydantic | [#51](https://github.com/georgebv/drf-pydantic/issues/51) | Reported, waiting for a reply. |
@@ -50,7 +50,7 @@ Each one was reproduced with a standalone script in a clean environment before i
 - **Proven fixes: 21 of 22 were real bugs**, according to both judges. Neither judge rated any fix as wrong. The judges agreed on 93% of claims.
 - **Weak spot:** each project had a bug its maintainers fixed soon after. Bite found only **1 of those 10**.
 
-These are small samples. The judges are AI models that read the code without running it. The only human checks so far are the maintainers' fixes and merges above.
+These are small samples. The judges are AI models that read the code without running it. The only human checks so far are the maintainers' fixes and merges above: 4 bugs fixed in srptools, 5 PRs merged in pyclibrary.
 
 ## Early access
 
