@@ -49,22 +49,22 @@ import bite  # noqa: E402
 import repo  # noqa: E402
 
 CLAUDE_MARK = re.compile(r"Co-Authored-By:\s*Claude|Generated with \[?Claude Code|claude\.ai/code|"
-                         r"noreply@anthropic\.com", re.I)
+                          r"noreply@anthropic\.com", re.I)
 CLAIM = re.compile(r"\b(fix(e[sd])?|handle[sd]?|prevent[sd]?|correct(s|ed)?|resolve[sd]?|guard|avoid[sd]?|"
-                   r"support[sd]?|make[sd]? .* work|no longer|now (works|handles|returns|accepts|respects))\b", re.I)
+                    r"support[sd]?|make[sd]? .* work|no longer|now (works|handles|returns|accepts|respects))\b", re.I)
 NOT_CODE = re.compile(r"\b(docs?|readme|typo|changelog|bump|release|version|lint|format(ting)?|ci|workflow)\b", re.I)
 # Claims about these come first: a miss there loses data or money, locks people out, or crashes.
 MATTERS = re.compile(r"\b(sav(e|es|ed|ing)|writ(e|es|ing)|delet\w*|remov\w*|overwrit\w*|data|loss|lost|corrupt\w*|"
-                     r"migrat\w*|money|price|pric\w*|payment|billing|invoice|amount|balance|auth\w*|login|password|"
-                     r"token|permission\w*|secur\w*|crash\w*|hang\w*|leak\w*|race|deadlock)\b", re.I)
+                      r"migrat\w*|money|price|pric\w*|payment|billing|invoice|amount|balance|auth\w*|login|password|"
+                      r"token|permission\w*|secur\w*|crash\w*|hang\w*|leak\w*|race|deadlock)\b", re.I)
 SPENT = [0.0]
 # A change built for another OS can't be checked here: its code path never runs, so every test passes without it.
 PLATFORM_WORDS = {"win": r"windows|win32|powershell|ntfs|max_path|userprofile|\.ps1\b|cmd\.exe",
-                  "mac": r"macos|mac os|darwin|apfs|osx", "linux": r"linux"}
+                   "mac": r"macos|mac os|darwin|apfs|osx", "linux": r"linux"}
 HERE = "win" if sys.platform.startswith("win") else "mac" if sys.platform == "darwin" else "linux"
 # Tidy-up commits: nothing in them is meant to change behaviour, so "nothing fails without it" isn't news.
 TIDY = re.compile(r"^(chore|style|ci|refactor|build|docs?|tests?)(\([^)]*\))?!?:|\b(lint|tidy|tidies|sort(ed)? imports|"
-                  r"reformat\w*|formatting|whitespace|typos?)\b", re.I)
+                   r"reformat\w*|formatting|whitespace|typos?)\b", re.I)
 # dotnet test exits 0 when its --filter matches no test: that's a test that never ran, not a claim that holds.
 RAN_NOTHING = re.compile(r"No test matches the given testcase filter|No test is available in")
 DOTNET_FILTER = '--filter "FullyQualifiedName~BiteClaim"'
@@ -148,7 +148,7 @@ def files_of(root: Path, c: dict, cfg) -> None:
     names = [n for n in names if n]
     c["tests"] = [n for n in names if bite.is_test_file(n, cfg)]
     c["code"] = [n for n in names if n not in c["tests"] and Path(n).suffix.lower() in repo.CODE_SUFFIXES
-                 and not repo.is_setup(n, cfg) and not comment_only(root, c["sha"], n)]
+                  and not repo.is_setup(n, cfg) and not comment_only(root, c["sha"], n)]
     stat = repo.git(root, "diff", "--shortstat", f"{c['sha']}^", c["sha"], "--", *c["code"]) if c["code"] else ""
     c["lines"] = sum(int(x) for x in re.findall(r"(\d+) (?:insertion|deletion)", stat or ""))
     claims = bool(CLAIM.search(c["subject"])) and not NOT_CODE.search(c["subject"])
@@ -160,7 +160,7 @@ def files_of(root: Path, c: dict, cfg) -> None:
     c["test_code"] = [n for n in c["tests"] if Path(n).suffix.lower() in repo.CODE_SUFFIXES]
     # No test is suspect, and so is a new test (it may check nothing the change did): the free pass tells which.
     c["score"] = ((3 if claims else 0) + (2 if not c["tests"] or c["test_code"] else 0) + (1 if 0 < c["lines"] <= 80 else 0)
-                  + (2 if MATTERS.search(said) else 0))
+                   + (2 if MATTERS.search(said) else 0))
 
 
 def export(root: Path, sha: str, cfg) -> Path:
@@ -232,7 +232,7 @@ def preflight(cfg) -> str:
     if cfg.contain:  # the tests run in the box, which brings its own programs
         return ""
     for cmd in dict.fromkeys(c for c in (cfg.free_cmd, cfg.test_cmd) if c):
-        if re.search(r"&&|\|\||[|;]|\{", cmd):
+        if re.search(r"&&|\|\||[|;]|\{|", cmd):
             continue  # a shell line: its first word may not be a program
         try:
             words = shlex.split(cmd, posix=not bite.WINDOWS)
@@ -331,7 +331,7 @@ Rules:
   project's other tests. Don't edit any other file. For .NET (dotnet test): BiteClaimTests.cs with a test
   class named BiteClaimTests, inside the folder of an existing test project so that project compiles it.
 - Run it: `pytest <your file>` runs only your test if pytest is the runner; for .NET,
-  `dotnet test <the test project> --filter "FullyQualifiedName~BiteClaim"`; `bite-test` runs the whole suite. If it fails, read the failure and make sure the TEST is right (right import, right API, right
+  `dotnet test <the test project> --filter "FullyQualifiedName~BiteClaim"`; `bite-test` runs the whole suite. If it fails, read the failure and make sure the TEST is right (right import, right AP[...]
   expectation from the claim) before you conclude the code is wrong. A failure from your own mistake is not a finding.
 - Finish with one line of JSON and nothing after it:
   {"test_file": "<path relative to the project>", "claim": "<the claim in your words>", "result": "fails" or "holds", "why": "<one sentence>"}"""
@@ -543,13 +543,13 @@ def write_html(root: Path, cs: list, tried: list, seconds: float) -> Path:
     false_done = [r for r in tried if r.get("status") == "FALSE DONE"]
     sha = lambda x: (f'<a href="{e(link + x)}">{x[:8]}</a>' if link else x[:8])  # noqa: E731
     rows = "".join(f'<tr class="{k}"><td><code>{sha(c["sha"])}</code></td><td>{e(c["subject"][:90])}</td>'
-                   f'<td><span class="dot"></span>{e(w)}' + (f'<div class="why">{e(c["why"])}</div>' if c.get("why") else "")
-                   + "</td></tr>" for c in checked for k, w in [plain(c["undo"])])
+                    f'<td><span class="dot"></span>{e(w)}' + (f'<div class="why">{e(c["why"])}</div>' if c.get("why") else "")
+                    + "</td></tr>" for c in checked for k, w in [plain(c["undo"])])
     claims = "".join(f'<tr class="{"odd" if r["status"] == "FALSE DONE" else "held" if r["status"] == "holds" else "skip"}">'
-                     f'<td><code>{sha(r["sha"])}</code></td><td>{e(r["subject"][:90])}</td><td><span class="dot"></span>'
-                     + (f'False "done": {e(r.get("bug", ""))} Today\'s code: {e(r.get("today", ""))}.'
-                        if r["status"] == "FALSE DONE" else "The claim held" if r["status"] == "holds" else e(r["status"]))
-                     + "</td></tr>" for r in tried)
+                      f'<td><code>{sha(r["sha"])}</code></td><td>{e(r["subject"][:90])}</td><td><span class="dot"></span>'
+                      + (f'False "done": {e(r.get("bug", ""))} Today\'s code: {e(r.get("today", ""))}.'
+                         if r["status"] == "FALSE DONE" else "The claim held" if r["status"] == "holds" else e(r["status"]))
+                      + "</td></tr>" for r in tried)
     tiles = [(len(checked), "commits checked", ""), (kinds.count("held"), "held", "held"),
              (kinds.count("gap") + kinds.count("odd"), "no test guards them", "gap"),
              (kinds.count("skip"), "couldn't check", "skip")]
@@ -694,8 +694,21 @@ def main(argv=None):
         return 0
     flags, valued = {"--free", "--all", "--any", "--serious", "--again"}, {"--last", "--free-checks", "--budget", "--suspects"}
     i = 0
-    while i < len(argv):  # a typo must not fall through to the paid step
+    while i < len(argv):
         if argv[i] in valued and i + 1 < len(argv):
+            value = argv[i + 1]
+            if argv[i] in {"--last", "--free-checks", "--suspects"}:
+                try:
+                    int(value)
+                except ValueError:
+                    print(f"Bite: {argv[i]} needs a whole number, got {value!r}.")
+                    return 2
+            elif argv[i] == "--budget":
+                try:
+                    float(value)
+                except ValueError:
+                    print(f"Bite: {argv[i]} needs a number, got {value!r}.")
+                    return 2
             i += 2
         elif argv[i] in flags:
             i += 1
