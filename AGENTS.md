@@ -113,8 +113,8 @@ that as the person asking for the test. `/bite` runs it on demand. No key needed
 
 - Read [CONTRIBUTING.md](CONTRIBUTING.md). Set up with `pip install -e .[test]`, then `python -m pytest`. No key
   and no network needed; all tests must pass before and after your change.
-- One fix per PR, with a test that fails without it. Say in the PR that an AI helped (an `Assisted-by:` line in
-  the commit).
+- One fix per PR, with a test that fails without it, and an `Assisted-by: <tool>` line in the commit message.
+  Tick the PR template's checklist honestly (screenshots in light and dark mode for anything visual).
 - CI runs the tests on Linux, Windows and macOS (Python 3.10 and 3.13); all six must pass to merge.
 
 Files: recent.py (the tool), live.py (the live check and the Claude Code plugin's hook; the plugin is in plugin/), bite.py (engine: settings, test running, safe copies, the command filter that keeps
