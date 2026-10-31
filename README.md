@@ -9,12 +9,25 @@
 
 **Bite checks whether an AI coding agent's "fixed" is actually true.**
 
+<img alt="bite --demo: one fix is noticed by a test, the other has no test at all" src="assets/bite-demo.svg" width="760">
+
+It takes each recent fix back out of your code and runs your tests. If they still pass, nothing guards that fix,
+and Bite tells you which one. That free check needs no key and works with pytest, npm test, cargo test, go test and
+dotnet test:
+
+```
+pipx install bite-check
+bite --free
+```
+
+With your own API key it goes one step further: it writes one small test of the commit's exact claim and runs it.
+That is how it found a memory leak in [prosemirror-py](#the-catch-that-shows-what-its-for) that a commit said it
+had fixed.
+
 > "Reverting the claimed fix and making the change prove itself under a real test is exactly the kind of check that
 > should exist for every "fixed" commit."
 >
 > — [Ivan Zdravkov](https://zdravkov.info), [on DEV](https://dev.to/izdravkov/comment/3jdej)
-
-When a commit says it fixed something, Bite writes one small test of that exact claim, runs it itself on the commit and on today's code, and shows the result only if a second, independent check agrees the test is fair. If the test fails, the "fixed" wasn't.
 
 ## Try it in a minute
 
