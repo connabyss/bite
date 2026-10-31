@@ -1,4 +1,5 @@
-<!-- Thanks for the PR! Fill in what applies and tick the boxes. -->
+<!-- Thanks for the PR! Tick each box. If one doesn't apply, write n/a on its line.
+     The checklist check stays red until every box is ticked or says n/a. -->
 
 **What was wrong, what you changed, how you checked:**
 
