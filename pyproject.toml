@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 dependencies = []
-keywords = ["testing", "ai", "coding-agent", "claude", "pytest", "regression", "git"]
+keywords = ["testing", "ai", "coding-agent", "claude", "pytest", "regression", "git", "regression-testing", "claude-code", "coding-agents", "code-quality"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
