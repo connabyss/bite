@@ -47,6 +47,7 @@ must use API keys. The commits it checks can come from any coding AI or person.
 
 import ast
 import asyncio
+import difflib
 import io
 import json
 import os
@@ -381,6 +382,61 @@ def take_out(root: Path, c: dict, folder: Path) -> None:
             bite.safe_write(folder, t, old)
 
 
+def is_rust_doc(line: str) -> bool:
+    s = line.lstrip()
+    return s.startswith("///") or s.startswith("//!")
+
+
+def keep_docs(old: bytes, new: bytes) -> bytes | None:
+    """The Rust file as it was before the commit, but with the commit's doc comments (/// and //!) kept. In Rust an
+    example in a doc comment is a test (cargo test runs it), so taking it out with the code hides that it tested
+    the change. None when the commit's doc comments hold no example."""
+    a = old.decode("utf-8", "replace").splitlines(keepends=True)
+    b = new.decode("utf-8", "replace").splitlines(keepends=True)
+    if not any(is_rust_doc(ln) and "```" in ln for ln in b):
+        return None
+    out = []
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        olds, news = a[i1:i2], b[j1:j2]
+        if op in ("equal", "delete"):
+            out += olds
+            continue
+        # The commit's doc lines replace the old ones; its code lines go back to the old code. A doc comment sits
+        # above the code it documents, so the doc lines before the chunk's first code line go first.
+        first = next((k for k, ln in enumerate(news) if not is_rust_doc(ln)), len(news))
+        out += [ln for ln in news[:first] if is_rust_doc(ln)]
+        out += [ln for ln in olds if not is_rust_doc(ln)]
+        out += [ln for ln in news[first:] if is_rust_doc(ln)]
+    kept = "".join(out).encode()
+    return None if kept == old else kept
+
+
+# cargo test's name for a doc example: "src/lib.rs - Thing::method (line 12)"
+DOCTEST_FAILED = re.compile(r"^test (\S+\.rs - .+? \(line \d+\)) \.\.\. FAILED", re.M)
+
+
+def doc_example_catches(root: Path, c: dict, folder: Path, fcfg) -> bool:
+    """With the code taken out but the commit's Rust doc examples kept, does a doc example fail? Only a failing doc
+    example counts: anything else (a doc comment left with nothing under it won't compile) says nothing."""
+    before = c.get("before") or f"{c['sha']}^"
+    changed = False
+    for rel in c["code"]:
+        if Path(rel).suffix.lower() != ".rs":
+            continue
+        old = repo.git(root, "cat-file", "blob", f"{before}:{rel}", raw=True)
+        new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True)
+        kept = keep_docs(old, new) if old is not None and new is not None else None
+        if kept is not None:
+            bite.safe_write(folder, folder / rel, kept)
+            changed = True
+    if not changed:
+        return False
+    names = DOCTEST_FAILED.findall(bite.run_tests(fcfg, folder)["out"])
+    if names:
+        c["caught"] = f"`{names[0]}`" + (f" and {len(names) - 1} more" if len(names) > 1 else "")
+    return bool(names)
+
+
 def undo_check(root: Path, c: dict, cfg) -> str:
     """'unguarded' when the tests still pass with this commit's code change taken back out; 'TEST GUARDS NOTHING'
     when that includes the tests the commit itself added or changed (they're kept: only the code is undone)."""
@@ -398,6 +454,8 @@ def undo_check(root: Path, c: dict, cfg) -> str:
             return "no tests ran at this commit"
         take_out(root, c, folder)
         undone = bite.run_tests(fcfg, folder)
+        if undone["ok"] and doc_example_catches(root, c, folder, fcfg):
+            return "guarded"  # by a doc example the commit wrote (Rust runs those as tests)
         if undone["ok"]:  # would be flagged: first rule out the usual harmless reasons
             if c.get("skip"):
                 return f"not flagged: {c['skip']}"
