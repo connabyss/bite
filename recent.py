@@ -17,6 +17,8 @@ Bite: did your coding agent's recent "done" commits really do what they said?
                               (API key, capped by --budget; --suspects sets how many, default 3)
     bite live                 check the changes since the last commit now (bite live --help: the live check for
                               coding AIs, and the Claude Code plugin's Stop hook)
+    bite mcp                  the same check as a tool your coding AI can call (an MCP server: Claude Code,
+                              Cursor, Copilot in VS Code, Windsurf, Codex, Gemini CLI)
     (from a clone without installing: python recent.py, python recent.py --free, ...)
 
 Step 1 (free): for each commit that changed code, the change is taken back out and the tests are run. If they
@@ -1236,6 +1238,9 @@ def main(argv=None):
     if argv[:1] == ["live"]:  # the live check for coding AIs (live.py): bite live, bite live --hook
         import live
         return live.main(argv[1:])
+    if argv[:1] == ["mcp"]:  # the same check as a tool any coding AI can call (bite_mcp.py)
+        import bite_mcp
+        return bite_mcp.main(argv[1:])
     if "--version" in argv:
         print(f"bite {_installed_version()}")
         return 0
