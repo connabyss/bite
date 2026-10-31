@@ -892,7 +892,7 @@ td:first-child{{white-space:nowrap}} .dot{{display:inline-block;width:9px;height
 .proof b{{color:var(--held)}} footer{{margin-top:32px;color:var(--mute);font-size:13px}}
 </style>
 <main>
-<h1>Bite report: {e(root.name)}</h1>
+<h1><img src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-avatar.png" width="32" height="32" alt="Bite" style="vertical-align: middle; margin-right: 8px;"> Bite report: {e(root.name)}</h1>
 <div class="sub">{datetime.now():%Y-%m-%d %H:%M} &middot; did the recent "fixed" commits hold? &middot; {seconds:.0f}s, ${SPENT[0]:.2f}</div>
 {f'<p class="proof"><b>Bite-proof. Nice work.</b> Every change Bite checked had a test that noticed it. Badge for your README:<br><code>{e(BADGE)}</code></p>' if bite_proof(kinds, tried) else ""}
 <div class="tiles">{"".join(f'<div class="tile {k}"><b>{n}</b>{e(t)}</div>' for n, t, k in tiles)}</div>
