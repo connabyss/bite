@@ -75,6 +75,14 @@ repo (`/plugin marketplace add connabyss/bite`, then `/plugin install bite@bite`
 that changed code: if no test notices your change, you're sent back once to add one that fails without it. Treat
 that as the person asking for the test. `/bite` runs it on demand. No key needed.
 
+## Live, in any coding AI
+
+`bite mcp` is an MCP server with one tool, `check_fix`: the same free check, for any coding AI that takes MCP servers
+(Claude Code, Cursor, Copilot in VS Code, Windsurf, Codex, Gemini CLI; setup lines for each in README.md). Call it
+after you fix something and before you tell your person it's fixed. Pass `folder` (the project you changed) when
+the server wasn't started there, and `since` to check a branch. If it says no test noticed, add a test that fails
+without your change, then call it again. "Couldn't check" is not a pass: say so. No MCP? Run `bite live`.
+
 ## Setup (once your person says yes; they only paste a key, and only for the paid step)
 
 - Python 3.10+ and git. `pipx install bite-check` gives the `bite` command (no venv
@@ -117,5 +125,5 @@ that as the person asking for the test. `/bite` runs it on demand. No key needed
   Tick the PR template's checklist honestly (screenshots in light and dark mode for anything visual).
 - CI runs the tests on Linux, Windows and macOS (Python 3.10 and 3.13); all six must pass to merge.
 
-Files: recent.py (the tool), live.py (the live check and the Claude Code plugin's hook; the plugin is in plugin/), bite.py (engine: settings, test running, safe copies, the command filter that keeps
+Files: recent.py (the tool), live.py (the live check and the Claude Code plugin's hook; the plugin is in plugin/), bite_mcp.py (`bite mcp`, the live check as an MCP tool), bite.py (engine: settings, test running, safe copies, the command filter that keeps
 the worker inside its copy), repo.py (git and settings helpers).
