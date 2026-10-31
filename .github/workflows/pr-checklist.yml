@@ -1,0 +1,16 @@
+name: checklist
+
+on:
+  pull_request:
+    # "edited" reruns it when the description changes, so ticking a box turns it green.
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  checklist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python bot/pr_checklist.py

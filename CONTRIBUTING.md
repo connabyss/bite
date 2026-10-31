@@ -23,7 +23,8 @@ The tests need no key and no network. They should all pass before and after your
 
 ## PR checklist
 
-Opening a PR fills in a short checklist for you. In short:
+Opening a PR fills in a short checklist for you. A check stays red until each box is ticked (or says n/a
+on a box that doesn't apply). In short:
 
 - One fix per PR, linked to its issue, with a test that fails without your change.
 - Screenshots in light and dark mode if it changes how something looks.
