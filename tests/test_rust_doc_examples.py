@@ -50,6 +50,11 @@ def test_keep_docs_puts_back_the_old_code_under_the_new_example():
 
 def test_keep_docs_skips_commits_without_an_example():
     assert recent.keep_docs(OLD.encode(), OLD.replace("fn join", "pub fn join").encode()) is None
+    # An example already in the file doesn't count: only one the commit added (indexmap cd4c1a53 added a doc
+    # comment with no example to a file full of them).
+    old = NEW.replace("pub fn join", "fn join")
+    assert recent.keep_docs(old.encode(), old.replace("/// Joins two buffers.", "/// Joins two buffers, in order.")
+                            .replace("    fn join", "    pub fn join").encode()) is None
 
 
 def sh(root, *a):

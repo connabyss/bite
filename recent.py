@@ -390,13 +390,14 @@ def is_rust_doc(line: str) -> bool:
 def keep_docs(old: bytes, new: bytes) -> bytes | None:
     """The Rust file as it was before the commit, but with the commit's doc comments (/// and //!) kept. In Rust an
     example in a doc comment is a test (cargo test runs it), so taking it out with the code hides that it tested
-    the change. None when the commit's doc comments hold no example."""
+    the change. None when the commit added no doc example."""
     a = old.decode("utf-8", "replace").splitlines(keepends=True)
     b = new.decode("utf-8", "replace").splitlines(keepends=True)
-    if not any(is_rust_doc(ln) and "```" in ln for ln in b):
-        return None
+    ops = difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+    if not any(is_rust_doc(ln) and "```" in ln for op, _, _, j1, j2 in ops if op != "equal" for ln in b[j1:j2]):
+        return None  # the commit added no doc example (the file's older examples were already there before)
     out = []
-    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+    for op, i1, i2, j1, j2 in ops:
         olds, news = a[i1:i2], b[j1:j2]
         if op in ("equal", "delete"):
             out += olds
