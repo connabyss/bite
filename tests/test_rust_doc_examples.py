@@ -83,4 +83,4 @@ def test_a_doc_example_the_commit_wrote_counts_as_its_test():
     recent.files_of(root, c, cfg)
     assert c["code"] == ["src/lib.rs"]
     assert recent.undo_check(root, c, cfg) == "guarded"
-    assert "src/lib.rs - " in c["caught"]
+    assert "lib.rs - Buf::join" in c["caught"]  # Windows writes src\\lib.rs
