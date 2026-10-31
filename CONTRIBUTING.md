@@ -23,12 +23,15 @@ The tests need no key and no network. They should all pass before and after your
 
 ## PR checklist
 
-- One fix per PR, with a test that fails without your change.
-- `python -m pytest` passes.
+Opening a PR fills in a short checklist for you. In short:
+
+- One fix per PR, linked to its issue, with a test that fails without your change.
+- Screenshots in light and dark mode if it changes how something looks.
+- `python -m pytest` passes, and CI is green.
 - Plain words in the PR description: what was wrong, what you changed, how you checked.
 
 ## AI-assisted PRs
 
-Welcome. Bite exists to check AI-written fixes, so it would be odd to turn them away. Please say in the PR
-that an AI helped (an `Assisted-by:` line in the commit is great), and make sure you've read and run the
-change yourself. Bite will probably be run on your PR.
+Welcome. Bite exists to check AI-written fixes, so it would be odd to turn them away. Please add an
+`Assisted-by: <tool>` line to the commit message (for example `Assisted-by: Claude Code`), and make sure
+you've read and run the change yourself. Bite will probably be run on your PR.
