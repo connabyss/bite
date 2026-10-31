@@ -16,10 +16,11 @@ BASH = shutil.which("bash")
 def action_script():
     lines = (KIT / "action.yml").read_text(encoding="utf-8").splitlines()
     start = max(i for i, ln in enumerate(lines) if ln.strip() == "run: |") + 1
-    return "\n".join(ln[8:] for ln in lines[start:])
+    end = next((i for i in range(start, len(lines)) if lines[i].startswith("    - ")), len(lines))  # the next step
+    return "\n".join(ln[8:] for ln in lines[start:end])
 
 
-def run_check(tmp_path, heading, report=False):
+def run_check(tmp_path, heading, report=False, wrote=False):
     repo = tmp_path / "repo"
     repo.mkdir()
     git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, text=True).stdout.strip()  # noqa: E731
@@ -33,11 +34,13 @@ def run_check(tmp_path, heading, report=False):
         "import pathlib\n"
         "p = pathlib.Path('bite_proof'); p.mkdir(exist_ok=True)\n"
         f"(p / 'COMMENT.md').write_text('<!-- bite-check -->\\n### {heading}\\n', encoding='utf-8')\n"
-        + ("(p / 'FREE_REPORT.md').write_text('gap', encoding='utf-8')\n" if report else ""))
+        + ("(p / 'FREE_REPORT.md').write_text('gap', encoding='utf-8')\n" if report else "")
+        + ("(p / 'missing_tests').mkdir(); (p / 'missing_tests' / 'test_bite_claim.py').write_text('x')\n" if wrote else ""))
     (fake / "bite").write_text(f'#!/bin/sh\nexec "{Path(sys.executable).as_posix()}" "{(fake / "bite.py").as_posix()}"\n')
     (fake / "bite").chmod(0o755)
     env = dict(os.environ, PATH=f"{fake}{os.pathsep}{os.environ['PATH']}", BASE=base, MAX="20", ARGS="", FAIL="true",
-               COMMENT="false", PR="1", GITHUB_STEP_SUMMARY=str(tmp_path / "summary.md"))
+               COMMENT="false", PR="1", GITHUB_STEP_SUMMARY=str(tmp_path / "summary.md"),
+               GITHUB_OUTPUT=str(tmp_path / "output.txt"))
     return subprocess.run([BASH, "-e", "-o", "pipefail", "-c", action_script()], cwd=repo, env=env,
                           capture_output=True, text=True)
 
@@ -66,6 +69,23 @@ def test_write_tests_without_a_key_runs_the_free_check_only(tmp_path, monkeypatc
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     r = run_check(tmp_path, "✅ Bite-proof. Nice work.")
     assert r.returncode == 0 and "no anthropic-api-key" in r.stdout, r.stdout + r.stderr
+
+
+@pytest.mark.skipif(not BASH or os.name == "nt", reason="needs bash (the check runs on Linux)")
+def test_a_written_test_is_offered_as_a_download_and_the_check_stays_red(tmp_path):
+    r = run_check(tmp_path, "⚠️ Bite: no test noticed 1 change", report=True, wrote=True)
+    assert r.returncode == 1 and "tests=true" in (tmp_path / "output.txt").read_text()
+    yaml = pytest.importorskip("yaml")
+    steps = yaml.safe_load((KIT / "action.yml").read_text(encoding="utf-8"))["runs"]["steps"]
+    up = steps[-1]
+    assert up["uses"].startswith("actions/upload-artifact@") and "steps.bite.outputs.tests == 'true'" in up["if"]
+    assert up["with"]["path"] == "bite_proof/missing_tests/" and "always()" in up["if"]
+
+
+@pytest.mark.skipif(not BASH or os.name == "nt", reason="needs bash (the check runs on Linux)")
+def test_no_written_test_means_no_download(tmp_path):
+    r = run_check(tmp_path, "⚠️ Bite: no test noticed 1 change", report=True)
+    assert r.returncode == 1 and not (tmp_path / "output.txt").exists()
 
 
 def test_descriptions_hold_no_expressions():

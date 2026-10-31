@@ -58,7 +58,8 @@ bite --free
 5. `--write-tests` (your own API key, capped by `--budget`), instead of step 3: for each change no test noticed, a
    fresh worker writes the missing test. Bite keeps it only if it passes twice with the change in and fails with
    the change taken out, then shows it ready to paste in (in bite_proof/FREE_REPORT.md and the pull request
-   comment; the Action's `write-tests: true` with `anthropic-api-key`).
+   comment; the Action's `write-tests: true` with `anthropic-api-key`). The Action also offers each kept test as a
+   download (bite-missing-tests), and with `open-pr: true` opens a pull request with them into the checked branch.
 
 **What it found on public repos, honestly** (evidence/RECENT.md): 104 fix claims in 11 projects (these runs
 looked at commits made with Claude Code), 4 false "done" shown, all real. The two that matter: the prosemirror-py

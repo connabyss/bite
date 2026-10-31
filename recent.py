@@ -922,6 +922,11 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
                   f"Save it as `{g['test_file']}` and run `{g['run']}`."
                   + (f" It checks that {html.escape(g['guards'].rstrip('.'), quote=False)[:200]}." if g.get("guards") else ""), "",
                   fence + FENCE_LANG.get(Path(g["test_file"]).suffix.lower(), ""), g["test"].rstrip(), fence, "", "</details>"]
+    run = os.environ.get("GITHUB_RUN_ID", "")
+    if wrote and run.isdigit():  # the Action uploads bite_proof/missing_tests/ as a download on the run's page
+        url = f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{run}"
+        lines += ["", f"📥 Or download {'it' if len(wrote) == 1 else 'them all'}, already in the right folder"
+                  f"{'' if len(wrote) == 1 else 's'}: **bite-missing-tests** under Artifacts on [this run's page]({url})."]
     total, last = os.environ.get("BITE_PR_COMMITS", ""), os.environ.get("BITE_CHECKED_COMMITS", "")
     if total.isdigit() and last.isdigit() and int(total) > int(last) and not error:
         lines += ["", f"Bite looked at the newest {last} of this pull request's {total} commits."]
@@ -982,6 +987,31 @@ def write_free(root: Path, cfg, flagged: list) -> Path:
     p = proof_dir(root) / "FREE_REPORT.md"
     p.write_text("\n".join(lines), encoding="utf-8")
     return p
+
+
+def save_missing_tests(root: Path, cs: list) -> list:
+    """Each test --write-tests kept, at its own path inside bite_proof/missing_tests/, so the whole folder can be
+    dropped into the project as it is (the Action offers it as a download and can open a pull request with it).
+    Two tests at one path (each written on its own copy) get the commit's short sha in the second one's name."""
+    d = proof_dir(root) / "missing_tests"
+    shutil.rmtree(d, ignore_errors=True)  # last run's tests aren't this run's
+    saved = []
+    for c in cs:
+        g = c.get("guard") or {}
+        if g.get("status") != "WRITTEN":
+            continue
+        rel = g["test_file"]
+        if rel in saved:
+            rel = re.sub(r"(?i)(bite_?claim)", lambda m: f"{m.group(1)}_{c['sha'][:8]}", rel, count=1)
+            if rel in saved:
+                continue  # no bite_claim in its name to tell them apart: the comment still shows it
+        f = d / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(g["test"], encoding="utf-8")
+        saved.append(rel)
+    if not saved:
+        shutil.rmtree(d, ignore_errors=True)
+    return saved
 
 
 def write_proof(root: Path, found: list) -> Path:
@@ -1256,6 +1286,7 @@ def main(argv=None):
         print(f"Each change no test noticed, with a check you can rerun and a note for your coding AI: {write_free(root, cfg, flagged)}")
     print(f"\n{time.time() - t0:.0f}s, ${SPENT[0]:.2f}")
     save_log(root, tried, cs)
+    save_missing_tests(root, flagged)
     write_comment(root, cs, newest=newest)
     print(f"One-page report (open it in your browser): {write_html(root, cs, tried, time.time() - t0)}")
     return 0

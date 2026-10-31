@@ -122,6 +122,24 @@ taken out. Only then does it show up in the comment, folded, ready to paste in. 
 says so. `--budget` caps what a run spends ($1 by default). Pull requests from forks don't get secrets, so on those
 Bite runs the free check only. On your own computer: `bite --write-tests`.
 
+Every test Bite keeps is also a download: **bite-missing-tests** under Artifacts on the run's page, each file already
+in the folder it belongs in.
+
+**One click instead of a paste (opt-in):** add `open-pr: true` and Bite opens a small pull request into your pull
+request's branch with the test in it. Click **Merge** there and the test is in. It runs on your workflow's own token,
+not on any app, so your workflow needs:
+
+```yaml
+permissions:
+  contents: write        # Bite puts the test on a branch of its own, bite/missing-tests-<number>
+  pull-requests: write
+```
+
+and, in your repository, Settings, Actions, General: tick **Allow GitHub Actions to create and approve pull
+requests**. Without that tick, Bite still puts the test on its branch and the comment links to open the pull request
+yourself. GitHub doesn't run your checks on a pull request a workflow opened, so they run once you merge it into your
+branch; Bite has already run the test both ways. Not on pull requests from forks.
+
 ## Bite-proof badge
 
 When every change Bite checked had a test that noticed it, Bite ends with "Bite-proof. Nice work." and prints a

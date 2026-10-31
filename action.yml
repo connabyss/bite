@@ -23,6 +23,9 @@ inputs:
   anthropic-api-key:
     description: Your own Anthropic API key, for write-tests only. Pass your repository secret ANTHROPIC_API_KEY here. Pull requests from forks don't get secrets, so there Bite runs the free check only.
     default: ""
+  open-pr:
+    description: With write-tests, open a pull request into this pull request's branch that adds the tests Bite wrote, so adding them is one click on Merge. Uses the workflow's own token, which needs contents and pull-requests write permission, and the repository setting that lets GitHub Actions create pull requests. Not on pull requests from forks.
+    default: "false"
   github-token:
     description: Token for the comment (needs pull-requests write permission).
     default: ${{ github.token }}
@@ -34,6 +37,7 @@ runs:
       shell: bash
       run: pipx install "$GITHUB_ACTION_PATH"
     - name: Run the free check on this pull request's commits
+      id: bite
       shell: bash
       env:
         BASE: ${{ github.event.pull_request.base.sha }}
@@ -45,6 +49,10 @@ runs:
         PR: ${{ github.event.pull_request.number }}
         WRITE: ${{ inputs.write-tests }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        OPEN_PR: ${{ inputs.open-pr }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
       run: |
         post_comment() {
           [ "$COMMENT" = "true" ] || return 0
@@ -73,6 +81,7 @@ runs:
         export BITE_CHECKED_COMMITS=$n
         echo "This pull request has $n commit(s) to check."
         rm -f bite_proof/FREE_REPORT.md bite_proof/COMMENT.md
+        rm -rf bite_proof/missing_tests
         if [ "$WRITE" = "true" ] && [ -n "$ANTHROPIC_API_KEY" ]; then
           pipx inject bite-check claude-agent-sdk > /dev/null  # the writing step's package
           ARGS="$ARGS --write-tests"
@@ -84,6 +93,12 @@ runs:
         if [ "$rc" -ne 0 ]; then
           post_comment  # says why Bite couldn't run, so last push's comment doesn't stay up
           exit "$rc"
+        fi
+        if [ -d bite_proof/missing_tests ]; then
+          echo "tests=true" >> "${GITHUB_OUTPUT:-/dev/null}"  # the next step offers them as a download
+          if [ "$OPEN_PR" = "true" ]; then
+            python3 "$GITHUB_ACTION_PATH/open_pr.py" || echo "::warning::Bite couldn't open the pull request with its tests."
+          fi
         fi
         post_comment
         # Tests failing on the newest commit mean nothing was checked: the check goes red, like the comment.
@@ -100,3 +115,9 @@ runs:
         else
           echo "Bite: no change in this pull request is missing a test." >> "$GITHUB_STEP_SUMMARY"
         fi
+    - name: Offer the tests Bite wrote as a download
+      if: always() && steps.bite.outputs.tests == 'true'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+      with:
+        name: bite-missing-tests
+        path: bite_proof/missing_tests/

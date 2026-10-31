@@ -171,11 +171,20 @@ try:
           and "Bite wrote below (🧪) for 1 of them" in comment and "paste in the test Bite wrote (🧪 below)" in comment)
     check("--write-tests: the report shows how it failed without the change, and the test is saved",
           "failed like this" in report and any(p.name.endswith("_test_bite_claim.py") for p in (root / "bite_proof").iterdir()))
+    kept = root / "bite_proof" / "missing_tests" / "test_bite_claim.py"
+    check("--write-tests: the kept test is saved at its own path, ready to drop in or download",
+          kept.is_file() and "clamp(-5, 0, 9)" in kept.read_text(encoding="utf-8") and "📥" not in comment)
+    with patch.dict(os.environ, {"GITHUB_RUN_ID": "77", "GITHUB_REPOSITORY": "o/r"}):
+        rc, out = run(root, ["--write-tests"], no_claim_worker)
+    check("--write-tests in the Action: the comment points to the download on the run's page",
+          "📥 Or download it" in (root / "bite_proof" / "COMMENT.md").read_text(encoding="utf-8")
+          and "github.com/o/r/actions/runs/77" in (root / "bite_proof" / "COMMENT.md").read_text(encoding="utf-8"))
     recent.guard_worker = fake_guard(GUARD_TEST.replace("clamp(-5, 0, 9), 0", "clamp(5, 0, 9), 5"))
     rc, out = run(root, ["--write-tests"], no_claim_worker)
     comment = (root / "bite_proof" / "COMMENT.md").read_text(encoding="utf-8")
     check("--write-tests: a test that passes without the change too is thrown away",
           "passed without the change too" in out and "🧪" not in comment and "add a test that fails without it" in comment)
+    check("--write-tests: a thrown-away test isn't offered for download", not (root / "bite_proof" / "missing_tests").exists())
     recent.guard_worker = fake_guard(GUARD_TEST.replace("clamp(-5, 0, 9), 0", "clamp(50, 0, 9), 9"))
     rc, out = run(root, ["--write-tests"], no_claim_worker)
     check("--write-tests: a test that fails with the change in is thrown away",
@@ -238,6 +247,15 @@ check("free pass: stopped partway, the first result is saved",
 run(root, ["--free"], fake_worker())
 st = subprocess.run(["git", "status", "--porcelain"], cwd=root, capture_output=True, text=True).stdout
 check("bite_proof/ doesn't show up in git status", "bite_proof" not in st)
+
+# Two tests written at the same path (each on its own copy) both land in missing_tests/, the second renamed.
+g = lambda sha, t: {"sha": sha, "guard": {"status": "WRITTEN", "test_file": "tests/test_bite_claim.py", "test": t}}  # noqa: E731
+saved = recent.save_missing_tests(root, [g("aaaaaaaa11", "one\n"), g("bbbbbbbb22", "two\n"),
+                                        {"sha": "c", "guard": {"status": "its test passed without the change too"}}])
+check("missing tests: two at one path are both kept, the second named after its commit",
+      saved == ["tests/test_bite_claim.py", "tests/test_bite_claim_bbbbbbbb.py"]
+      and (root / "bite_proof" / "missing_tests" / "tests" / "test_bite_claim_bbbbbbbb.py").read_text() == "two\n")
+recent.save_missing_tests(root, [])
 
 # test_covers: a change the test command can't reach is listed as such, not called "unguarded".
 root = make_repo()
