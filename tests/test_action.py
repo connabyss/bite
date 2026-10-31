@@ -72,9 +72,12 @@ def test_write_tests_without_a_key_runs_the_free_check_only(tmp_path, monkeypatc
 
 
 @pytest.mark.skipif(not BASH or os.name == "nt", reason="needs bash (the check runs on Linux)")
-def test_a_written_test_is_offered_as_a_download_and_the_check_stays_red(tmp_path):
+def test_a_written_test_is_flagged_for_the_download_and_the_check_stays_red(tmp_path):
     r = run_check(tmp_path, "⚠️ Bite: no test noticed 1 change", report=True, wrote=True)
     assert r.returncode == 1 and "tests=true" in (tmp_path / "output.txt").read_text()
+
+
+def test_the_download_step_runs_after_a_red_check():
     yaml = pytest.importorskip("yaml")
     steps = yaml.safe_load((KIT / "action.yml").read_text(encoding="utf-8"))["runs"]["steps"]
     up = steps[-1]

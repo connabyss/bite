@@ -173,7 +173,12 @@ try:
           "failed like this" in report and any(p.name.endswith("_test_bite_claim.py") for p in (root / "bite_proof").iterdir()))
     kept = root / "bite_proof" / "missing_tests" / "test_bite_claim.py"
     check("--write-tests: the kept test is saved at its own path, ready to drop in or download",
-          kept.is_file() and "clamp(-5, 0, 9)" in kept.read_text(encoding="utf-8") and "📥" not in comment)
+          kept.is_file() and "clamp(-5, 0, 9)" in kept.read_text(encoding="utf-8"))
+    with patch.dict(os.environ):
+        os.environ.pop("GITHUB_RUN_ID", None)  # CI sets it: this run stands for one on a computer
+        rc, out = run(root, ["--write-tests"], no_claim_worker)
+    check("--write-tests on a computer: no download line in the comment",
+          "📥" not in (root / "bite_proof" / "COMMENT.md").read_text(encoding="utf-8"))
     with patch.dict(os.environ, {"GITHUB_RUN_ID": "77", "GITHUB_REPOSITORY": "o/r"}):
         rc, out = run(root, ["--write-tests"], no_claim_worker)
     check("--write-tests in the Action: the comment points to the download on the run's page",
