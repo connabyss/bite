@@ -140,7 +140,7 @@ jobs:
       # install what your tests need here, e.g. for Python:
       - uses: actions/setup-python@v5
       - run: python -m pip install pytest -r requirements.txt
-      - uses: connabyss/bite@v0.6.0
+      - uses: connabyss/bite@v0.7.0
 ```
 
 Options go under `with:`: `args` (extra `bite` options, e.g. `--serious`), `max-commits` (default 20),
@@ -154,7 +154,7 @@ When no test noticed a change, Bite can write that test for you. Add your Anthro
 named `ANTHROPIC_API_KEY`, then:
 
 ```yaml
-      - uses: connabyss/bite@v0.6.0
+      - uses: connabyss/bite@v0.7.0
         with:
           write-tests: true
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
