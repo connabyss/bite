@@ -154,3 +154,51 @@ def test_reverting_in_the_middle_of_a_title_is_on_purpose_too():
     root = project([("Start", {"shop.py": OLD}), ("Fix totals", {"shop.py": FIXED}),
                     ("fix #12 by reverting the rounding", {"shop.py": OLD})])
     assert check(root)[0] == "reverted since"
+
+
+def test_the_culprit_is_the_commit_not_the_merge_that_brought_it_in():
+    # Seen on stretchr/testify: a pull request branch that still had the fix was merged after the undo, and the
+    # merge was named instead of the commit that put the old code back.
+    root = project([("Start", {"shop.py": OLD + OTHER}), ("Fix totals", {"shop.py": FIXED + OTHER})])
+    git = lambda *a: subprocess.run([*GIT, *a], cwd=root, check=True, capture_output=True)  # noqa: E731
+    git("checkout", "-q", "-b", "side")
+    (root / "shop.py").write_text(FIXED + OTHER.replace("0.2", "0.25"), encoding="utf-8", newline="\n")
+    git("commit", "-q", "-am", "Raise the tax")
+    git("checkout", "-q", "-")
+    (root / "shop.py").write_text(OLD + OTHER, encoding="utf-8", newline="\n")
+    git("commit", "-q", "-am", "Simplify total()")
+    git("merge", "-q", "--no-ff", "-m", "Merge pull request #2 from side", "side")
+    back, c = check(root)
+    assert back == "undone since" and c["undone_by"]["subject"] == "Simplify total()"
+
+
+RATE = "def total(prices, rate=1):\n    a = 1\n    b = 2\n    c = 3\n    d = 4\n    return sum(p * rate for p in prices)\n"
+
+
+def test_no_alarm_when_a_later_commit_did_the_fix_another_way():
+    # Seen on marshmallow, more-itertools, serde_json and indexmap: a later commit took the fix's lines out and
+    # wrote its own code for the same thing a few lines away. The fix's text is gone, what it did isn't.
+    fixed = RATE.replace("    return", "    if rate < 0:\n        raise ValueError('negative rate')\n    return")
+    redone = RATE.replace("rate=1):\n", "rate=1):\n    rate = max(rate, 0)\n")
+    root = project([("Start", {"shop.py": RATE}), ("Fix totals", {"shop.py": fixed}),
+                    ("Treat a rate below zero as zero", {"shop.py": redone})])
+    assert check(root)[0] == ""
+
+
+def test_undoing_a_revert_is_no_alarm():
+    # Seen on click and JSON-java: the commit checked was itself a revert, so a later commit putting the code back
+    # is the change coming back, not a fix coming undone.
+    root = project([("Start", {"shop.py": OLD}), ("Fix totals", {"shop.py": FIXED}),
+                    ('Revert "Fix totals"', {"shop.py": OLD}), ("Fix totals again", {"shop.py": FIXED + OTHER})])
+    c = {"sha": sha_of(root, 'Revert "Fix totals"'), "code": ["shop.py"], "subject": 'Revert "Fix totals"'}
+    assert recent.came_back(root, c) == ""
+
+
+def test_a_tidy_up_undone_is_no_alarm():
+    # Seen on tokio-rs/bytes: "ci: silence warnings" was later done another way. A tidy-up changes no behaviour,
+    # so its code going back says nothing about a fix.
+    root = project([("Start", {"shop.py": OLD}), ("chore: round totals", {"shop.py": FIXED}),
+                    ("Simplify total()", {"shop.py": OLD + OTHER})])
+    c = {"sha": sha_of(root, "chore: round totals"), "code": ["shop.py"], "subject": "chore: round totals",
+         "skip": recent.skip_reason("chore: round totals", "chore: round totals")}
+    assert c["skip"] and recent.came_back(root, c) == ""

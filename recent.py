@@ -111,6 +111,7 @@ PLATFORM_CODE = re.compile(r"sys\.platform|os\.name\b|platform\.(system|mac_ver|
 VERSION_CODE = re.compile(r"version_info|hexversion|\bPY3\d*\b|\bPY2\b|PY_VERSION|python_version|sys\.version\b|"
                           r"importlib_metadata|typing_extensions|__future__")
 REVERT = re.compile(r'^(?:Revert|Reapply)\s+"', re.I)
+TIDY_SKIP = "a tidy-up, so there's nothing new to check"
 # Speed-ups: tests check results, not speed, so the slower old code passing them is expected.
 SPEED = re.compile(r"^perf(\([^)]*\))?!?:|\b(faster|speed(s|ing)?[ -]?up|lazy|lazily|optimi[sz]\w*|performance)\b", re.I)
 # dotnet test exits 0 when its --filter matches no test: that's a test that never ran, not a claim that holds.
@@ -217,7 +218,7 @@ def skip_reason(subject: str, said: str, code: str | None = None) -> str:
     if RELEASE.search(subject):
         return "a release, so it only changes the version number"
     if TIDY.search(subject) and not fixes:
-        return "a tidy-up, so there's nothing new to check"
+        return TIDY_SKIP
     if SPEED.search(subject) and not fixes:
         return "a speed-up, and tests check results, not speed"
     return ""
@@ -625,6 +626,9 @@ def came_back(root: Path, c: dict) -> str:
     head = repo.git(root, "rev-parse", "HEAD")
     if not head or head == sha or c.get("before") or not code:
         return ""
+    # A revert coming undone is the reverted change coming back, and a tidy-up changes nothing a user would miss.
+    if REVERT.match(c.get("subject", "")) or c.get("skip") == TIDY_SKIP:
+        return ""
     if subprocess.run(["git", "merge-base", "--is-ancestor", sha, "HEAD"], cwd=root, capture_output=True).returncode:
         return ""
     for rel in code:  # a file the fix changed that's gone today was moved or deleted, which isn't an undo
@@ -663,22 +667,54 @@ def came_back(root: Path, c: dict) -> str:
 
         if not gone("HEAD"):
             return ""
-        # Who put the old code back: walking back from today through the commits that touched these files, the
-        # oldest one in the run where the fix is gone (an older undo that was later fixed again doesn't count).
+        # Who put the old code back: the newest commit that touched these files where the fix is gone but wasn't
+        # just before it (an older undo that was later fixed again doesn't count). A merge is named only when it
+        # dropped the fix itself: one that brings in a branch that still had it isn't the culprit.
         later = (repo.git(root, "rev-list", "--topo-order", "--ancestry-path", "-n200", f"{sha}..HEAD", "--", *code) or "").split()
-        culprit = ""
+        culprit, merges = "", []
         for rev in later:
-            if not gone(rev):
+            ups = (repo.git(root, "rev-parse", f"{rev}^@") or "").split()
+            if len(ups) > 1:
+                merges.append((rev, ups))
+            elif ups and gone(rev) and not gone(ups[0]):
+                culprit = rev
                 break
-            culprit = rev
         else:
-            if len(later) == 200:  # ran out of commits to walk: no name rather than a wrong one
-                culprit = ""
+            culprit = next((m for m, ups in merges if gone(m) and not any(gone(u) for u in ups)), "")
+        if culprit and redone(root, sha, culprit, code):
+            return ""  # the culprit wrote its own code for the same thing: done another way, not undone
     if not culprit:
         return "undone since"
     c["undone_by"] = {"sha": culprit, "subject": repo.git(root, "log", "-n1", "--format=%s", culprit) or ""}
     # "Revert ...", "fix #587 by reverting ...": done on purpose, so a note rather than the alarm
     return "reverted since" if re.search(r"(?i)\brevert", c["undone_by"]["subject"]) else "undone since"
+
+
+def redone(root: Path, sha: str, culprit: str, code: list) -> bool:
+    """The commit that took the fix's lines out wrote new code of its own in a function the fix changed: the fix
+    was done another way (often a better one), so its text is gone but not what it did. Putting old lines back
+    and removing the fix's lines doesn't count as new code; comments don't either."""
+    def ops(rev: str, rel: str):
+        a = repo.git(root, "cat-file", "blob", f"{rev}^:{rel}", raw=True)
+        b = repo.git(root, "cat-file", "blob", f"{rev}:{rel}", raw=True)
+        if a is None or b is None:
+            return [], [], []
+        a = a.decode("utf-8", "replace").splitlines()
+        b = b.decode("utf-8", "replace").splitlines()
+        return a, b, [o for o in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes() if o[0] != "equal"]
+    for rel in code:
+        a, b, fix = ops(sha, rel)
+        names = {owner(b, j) for _, i1, i2, j1, j2 in fix for j in range(j1, j2)}  # each changed line's function
+        names = (names | {owner(a, i) for _, i1, i2, _, _ in fix for i in range(i1, i2)}) - {""}
+        old = {ln.strip() for _, i1, i2, _, _ in fix for ln in a[i1:i2]}
+        a2, b2, undo = ops(culprit, rel)
+        for _, i1, i2, j1, j2 in undo:
+            for j in range(j1, j2):
+                line = b2[j].strip()
+                if len(line) >= 10 and line not in old and not line.startswith(("#", "//", "/*", "*", '"""')) \
+                        and owner(b2, j) in names:
+                    return True
+    return False
 
 
 def fail_why(run: dict) -> str:
