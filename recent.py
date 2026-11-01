@@ -13,6 +13,8 @@ Bite: did your coding agent's recent "done" commits really do what they said?
     bite --all                same as plain bite (kept so older commands still work)
     bite --roast              the same results, worded a little more gently
     bite --since main         only commits that main doesn't have (the pull request check uses this)
+    bite --json               print the results as JSON for other programs (the rest goes to stderr); they're
+                              also saved in bite_proof/results.json on every run
     bite --write-tests        after the free check, write the missing test for each change no test noticed
                               (API key, capped by --budget; --suspects sets how many, default 3)
     bite live                 check the changes since the last commit now (bite live --help: the live check for
@@ -1010,7 +1012,7 @@ FENCE_LANG = {".py": "python", ".js": "js", ".mjs": "js", ".cjs": "js", ".ts": "
               ".rs": "rust", ".go": "go", ".cs": "csharp"}
 
 
-def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest: str = "") -> Path:
+def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest: str = "", tried: list = ()) -> Path:
     """The free check in plain words for a pull request comment (the GitHub Action posts it): a verdict, what to
     do next, then one line per commit. none says why nothing was checked, error why Bite couldn't start, and newest
     is the pull request's newest commit: only its failing tests decide the verdict."""
@@ -1086,6 +1088,47 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
     lines[1] = lines[1].replace("### ", f"### {CAT} ", 1)
     p = proof_dir(root) / "COMMENT.md"
     p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_results(root, cs, none, error, newest, tried)
+    return p
+
+
+# --json: the names in results.json are kept from release to release (a change to them bumps "schema").
+RESULT_NAMES = {"held": "noticed", "gap": "no_test_noticed", "odd": "its_tests_didnt_notice", "fail": "tests_fail",
+                "none": "no_tests", "skip": "skipped"}
+
+
+def results(cs: list, none: str = "", error: str = "", newest: str = "", tried: list = ()) -> dict:
+    """The run for other programs (bite --json, bite_proof/results.json): the same results as the comment, under
+    names that stay the same between releases. The fields are listed in README.md (Results for other tools)."""
+    checked = [c for c in cs if c.get("undo")]
+    commits = []
+    for c in checked:
+        kind, label, text = say(c, newest)
+        r = {"sha": c["sha"], "subject": c["subject"], "result": RESULT_NAMES[kind],
+             "label": label.split(" ", 1)[1] if " " in label else label, "detail": flat(text)[2:].strip()}
+        if c.get("why"):
+            r["why"] = c["why"]
+        if (c.get("guard") or {}).get("status") == "WRITTEN":
+            r["missing_test"] = {k: c["guard"][k] for k in ("test_file", "run") if c["guard"].get(k)}
+        commits.append(r)
+    kinds = {r["result"] for r in commits}
+    outcome = ("error" if error else "tests_fail" if "tests_fail" in kinds
+               else "gaps" if kinds & {"no_test_noticed", "its_tests_didnt_notice"}
+               else "no_tests" if "no_tests" in kinds and "noticed" not in kinds
+               else "noticed" if "noticed" in kinds else "nothing_checked")
+    false_done = [{"sha": r["sha"], "subject": r.get("subject", ""), "bug": r.get("bug", ""), "today": r.get("today", "")}
+                  for r in tried if r.get("status") == "FALSE DONE"]
+    return {"schema": 1, "bite": _installed_version(), "outcome": outcome, "message": error or none,
+            "commits": commits, "false_done": false_done}
+
+
+LAST_RESULTS = [None]  # the results.json this run wrote, for --json
+
+
+def write_results(root: Path, cs: list, none: str = "", error: str = "", newest: str = "", tried: list = ()) -> Path:
+    p = proof_dir(root) / "results.json"
+    p.write_text(json.dumps(results(cs, none, error, newest, tried), indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    LAST_RESULTS[0] = p
     return p
 
 
@@ -1232,7 +1275,7 @@ def demo(argv: list) -> int:
 
 
 # Every option main() accepts; each one must be in the help text above (the self-test checks).
-FLAGS = {"--free", "--all", "--any", "--serious", "--again", "--roast", "--demo", "--write-tests"}
+FLAGS = {"--free", "--all", "--any", "--serious", "--again", "--roast", "--demo", "--write-tests", "--json"}
 VALUED = {"--last": int, "--free-checks": int, "--suspects": int, "--budget": float, "--since": str}
 
 
@@ -1265,6 +1308,20 @@ def _installed_version():
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if "--json" in argv and argv[:1] not in (["live"], ["ask"], ["mcp"]) and not {"-h", "--help", "--version"} & set(argv):
+        # Only the results go to stdout, so a program can read them; what Bite says along the way goes to stderr.
+        import contextlib
+        out, argv = sys.stdout, [a for a in argv if a != "--json"]
+        LAST_RESULTS[0] = None
+        with contextlib.redirect_stdout(sys.stderr):
+            rc = main(argv)
+        if LAST_RESULTS[0]:
+            out.write(LAST_RESULTS[0].read_text(encoding="utf-8"))
+        else:
+            out.write(json.dumps({"schema": 1, "bite": _installed_version(), "outcome": "error",
+                                  "message": "Bite stopped before it had results (see above).", "commits": [],
+                                  "false_done": []}) + "\n")
+        return rc
     if argv[:1] == ["live"]:  # the live check for coding AIs (live.py): bite live, bite live --hook
         import live
         return live.main(argv[1:])
@@ -1463,7 +1520,7 @@ def main(argv=None):
     print(f"\n{time.time() - t0:.0f}s, ${SPENT[0]:.2f}")
     save_log(root, tried, cs)
     save_missing_tests(root, flagged)
-    write_comment(root, cs, newest=newest)
+    write_comment(root, cs, newest=newest, tried=tried)
     print(f"One-page report (open it in your browser): {write_html(root, cs, tried, time.time() - t0)}")
     return 0
 

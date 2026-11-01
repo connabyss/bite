@@ -233,6 +233,19 @@ requests**. Without that tick, Bite still puts the test on its branch and the co
 yourself. GitHub doesn't run your checks on a pull request a workflow opened, so they run once you merge it into your
 branch; Bite has already run the test both ways. Not on pull requests from forks.
 
+## Results for other tools
+
+`bite --json` prints the results as JSON, for scripts, dashboards and other bots; everything else Bite says goes to
+stderr. Every run also saves them in `bite_proof/results.json`. These names stay the same from release to release
+(a change to them would bump `schema`):
+
+- `outcome`: `noticed` (a test noticed every change), `gaps` (no test noticed at least one), `tests_fail`,
+  `no_tests`, `nothing_checked` or `error` (`message` says why).
+- `commits`: one per commit checked, with `sha`, `subject`, `result` (`noticed`, `no_test_noticed`,
+  `its_tests_didnt_notice`, `tests_fail`, `no_tests` or `skipped`), `label` and `detail` (the words Bite shows),
+  and `why` or `missing_test` when there is one.
+- `false_done`: each claim the paid step proved false, with `sha`, `subject`, `bug` and `today`.
+
 ## Bite-proof badge
 
 When every change Bite checked had a test that noticed it, Bite ends with "Bite-proof. Nice work." and prints a
