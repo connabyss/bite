@@ -63,14 +63,19 @@ DEFAULT_FAIL = r"\bFAIL|SCRIPT ERROR|SHADER ERROR|Parse Error|parse error|ignori
 PASSED_LINE = re.compile(r"^\s*(?:[✔✓√]|âœ”|âœ“|âˆš|ok\b|PASS(?:ED)?\b|--- PASS\b)")
 
 
+def settings_section(cp) -> dict:
+    """The settings in a .bite.ini: its [bite] section, or [kit], the name it had before 0.9 (still read)."""
+    return next((cp[name] for name in ("bite", "kit") if name in cp), {})
+
+
 class Config:
     def __init__(self, path: Path = CONFIG_FILE):
         if not path.exists():
             raise SystemExit(f"No {path.name} found. Settings are optional: run bite in your repo "
-                             "to guess the test command, or create .bite.ini there with a [kit] section.")
+                             "to guess the test command, or create .bite.ini there with a [bite] section.")
         cp = configparser.ConfigParser(interpolation=None)
         cp.read(path, encoding="utf-8")
-        g = cp["kit"] if "kit" in cp else {}
+        g = settings_section(cp)
         self.project = Path(os.path.expandvars(os.path.expanduser(g.get("project_folder", "")))).resolve()
         mb = g.get("mailbox_folder", "") or str(KIT_DIR / "mailbox")
         self.mailbox = Path(os.path.expandvars(os.path.expanduser(mb))).resolve()

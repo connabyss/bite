@@ -52,12 +52,12 @@ def state_dir(root: Path) -> Path:
 
 def load_cfg(root: Path):
     ini = Path(os.environ["BITE_CONFIG"]) if os.environ.get("BITE_CONFIG") else root / ".bite.ini"
-    if ini.is_file() and not re.search(r"(?m)^\s*\[kit\]\s*$", ini.read_text(encoding="utf-8", errors="replace")):
-        raise ConfigError(f"{ini.name} has no [kit] section, so none of its settings are read. "
-                          "Put [kit] on the first line.")
+    if ini.is_file() and not re.search(r"(?m)^\s*\[(?:bite|kit)\]\s*$", ini.read_text(encoding="utf-8", errors="replace")):
+        raise ConfigError(f"{ini.name} has no [bite] section, so none of its settings are read. "
+                          "Put [bite] on the first line.")
     if not ini.is_file():
         ini = state_dir(root) / "auto.ini"
-        ini.write_text("[kit]\n"
+        ini.write_text("[bite]\n"
                        f"project_folder = {root}\n"
                        f"test_command = {bite.guess_test_command(root)}\n"
                        f"bite_copy_ignore = {', '.join(COPY_IGNORE)}\n"

@@ -84,3 +84,70 @@ def test_a_doc_example_the_commit_wrote_counts_as_its_test():
     assert c["code"] == ["src/lib.rs"]
     assert recent.undo_check(root, c, cfg) == "guarded"
     assert "lib.rs - Buf::join" in c["caught"]  # Windows writes src\\lib.rs
+
+
+# A commit that adds a whole new method, with its example, above a method that already had docs (tokio-rs/bytes
+# b8d27c01 added UninitSlice::as_uninit_slice_mut above UninitSlice::len). Taking the new method out left its
+# example sitting on top of len's docs, so cargo named the failing example after len.
+OLD_LEN = """pub struct Buf(pub Vec<u8>);
+
+impl Buf {
+    /// The length.
+    ///
+    /// ```
+    /// assert_eq!(demo::Buf(vec![1]).len(), 1);
+    /// ```
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+"""
+
+NEW_PEEK = OLD_LEN.replace("    /// The length.", """    /// The first byte.
+    ///
+    /// ```
+    /// assert_eq!(demo::Buf(vec![7]).peek(), 7);
+    /// ```
+    pub fn peek(&self) -> u8 {
+        self.0[0]
+    }
+
+    /// The length.""")
+
+
+def test_a_new_methods_example_stays_its_own_when_the_method_is_taken_out():
+    kept = recent.keep_docs(OLD_LEN.encode(), NEW_PEEK.encode()).decode()
+    assert "self.0[0]" not in kept  # the method's code is still taken out
+    peek_doc, len_doc = kept.index(".peek(), 7)"), kept.index("/// The length.")
+    # Something that isn't a doc comment now sits between the two examples, so they stay apart.
+    assert any(not recent.is_rust_doc(ln) and ln.strip() for ln in kept[peek_doc:len_doc].splitlines()[1:])
+
+
+def test_an_example_on_a_new_trait_impl_method_is_left_as_before():
+    # A trait impl can't hold an item the trait doesn't have, so no stand-in goes there.
+    old = OLD_LEN.replace("impl Buf {", "impl Clone for Buf {")
+    new = NEW_PEEK.replace("impl Buf {", "impl Clone for Buf {")
+    kept = recent.keep_docs(old.encode(), new.encode()).decode()
+    assert "const peek" not in kept
+
+
+@pytest.mark.skipif(not shutil.which("cargo"), reason="needs cargo")
+def test_a_new_methods_failing_example_is_named_after_that_method():
+    root = Path(tempfile.mkdtemp()) / "demo"
+    (root / "src").mkdir(parents=True)
+    sh(root, "git", "init", "-q")
+    (root / "Cargo.toml").write_text('[package]\nname = "demo"\nversion = "0.1.0"\nedition = "2021"\n')
+    (root / ".gitignore").write_text("target\n")
+    (root / ".bite.ini").write_text("[bite]\ntest_command = cargo test\nallowed_programs = cargo\n")
+    (root / "src" / "lib.rs").write_text(OLD_LEN)
+    sh(root, "git", "add", "-A")
+    sh(root, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "start")
+    (root / "src" / "lib.rs").write_text(NEW_PEEK)
+    sh(root, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-am", "Add Buf::peek")
+    sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True).stdout.strip()
+    cfg = recent.repo.load_cfg(root)
+    recent.extras(root, cfg)
+    c = {"sha": sha, "subject": "Add Buf::peek", "body": ""}
+    recent.files_of(root, c, cfg)
+    assert recent.undo_check(root, c, cfg) == "guarded"
+    assert "Buf::peek" in c["caught"] and "Buf::len" not in c["caught"]
