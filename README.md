@@ -12,8 +12,8 @@
 <img alt="bite --demo: one fix is noticed by a test, the other has no test at all" src="assets/bite-demo.svg" width="760">
 
 It takes each recent fix back out of your code and runs your tests. If they still pass, nothing guards that fix,
-and Bite tells you which one. That free check needs no key and works with pytest, npm test, cargo test, go test and
-dotnet test:
+and Bite tells you which one. That free check needs no key and works with pytest, npm test, cargo test, go test,
+dotnet test, Maven and Gradle (Java and Kotlin):
 
 ```
 pipx install bite-check
@@ -78,7 +78,7 @@ This step uses your own API key, and `--budget` caps what a run spends ($1 by de
 Agent SDK, so it needs an API key and never uses a Claude login or plan (Anthropic's Agent SDK rule:
 https://code.claude.com/docs/en/agent-sdk/overview). The commits Bite checks can come from any coding AI or person.
 
-Works with pytest, npm test, cargo test, go test and dotnet test. Settings and limits: [AGENTS.md](https://github.com/connabyss/bite/blob/main/AGENTS.md),
+Works with pytest, npm test, cargo test, go test, dotnet test, Maven and Gradle. Settings and limits: [AGENTS.md](https://github.com/connabyss/bite/blob/main/AGENTS.md),
 written so your coding AI (Claude Code, Codex, Cursor, Copilot) can set Bite up for you. To work on Bite itself: clone it, `pip install -e .[test]`, then `python -m pytest`.
 
 ## Check Claude's "fixed" live, in Claude Code

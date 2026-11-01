@@ -48,7 +48,7 @@ bite --free
    commit added tests and they still pass without its code, they test nothing it did: "ITS TESTS DIDN'T NOTICE".
    When no commit claims a fix, Bite says so and checks only the commits that added tests (`--any`: all).
    It only takes out code in the language the tests run (pytest: Python; npm test: JavaScript or TypeScript;
-   cargo, go, dotnet: theirs). A commit that changed only other code is listed as code the tests can't run.
+   cargo, go, dotnet: theirs; Maven and Gradle: Java and Kotlin). A commit that changed only other code is listed as code the tests can't run.
    Before flagging, it rules out the usual harmless reasons and says which: a change built for another OS than
    the one it runs on, a tidy-up commit, tests that don't name the changed code, or a gap a later commit closed.
 3. Paid (your own API key), for the top suspects: a fresh worker writes one small test of the commit's own
@@ -91,9 +91,11 @@ without your change, then call it again. "Couldn't check" is not a pass: say so.
   package. If they have no pipx: `python -m pip install --user pipx`, `python -m pipx ensurepath`, new window.
   Bite checks for git and the test runner (e.g. pytest) first and prints the install line if one is missing.
 - Optional `.bite.ini` in their repo, first line `[bite]` (older files with `[kit]` still work), then
-  `test_command = <their test command>` (Bite guesses pytest, npm test, cargo test, go test or dotnet test when it isn't set). `claim_command` runs one test
+  `test_command = <their test command>` (Bite guesses pytest, npm test, cargo test, go test, dotnet test, Maven or Gradle when it isn't set; the project's own mvnw or gradlew first). `claim_command` runs one test
   file (`{file}`) if adding the file to test_command doesn't work for their runner. For dotnet test Bite runs
-  the claim test with `--filter "FullyQualifiedName~BiteClaim"` instead of a file path. Unity projects: their
+  the claim test with `--filter "FullyQualifiedName~BiteClaim"` instead of a file path; for Maven with
+  `-Dtest=BiteClaim*` and for Gradle with `--tests "*BiteClaim*"`, inside the claim's own module. Maven and Gradle
+  need Java (a JDK) installed. Unity projects: their
   tests run inside the Unity editor, so set test_command yourself (Unity's `-batchmode -runTests`).
 - `test_covers = Assets/Sim/*, tests/*`: the paths the test command can reach. Commits that touch none of them
   are listed as outside the tests' reach, not checked (otherwise they all look like "no test noticed").

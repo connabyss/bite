@@ -23,9 +23,10 @@ RUNNERS = [("Python", {"pytest", "py.test", "python", "python3", "py", "tox", "n
             {".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".mts", ".cts", ".vue", ".svelte"}),
            ("Rust", {"cargo"}, {".rs"}),
            ("Go", {"go"}, {".go"}),
-           (".NET", {"dotnet"}, {".cs", ".fs"})]
+           (".NET", {"dotnet"}, {".cs", ".fs"}),
+           ("Java or Kotlin", {"mvn", "mvnw", "gradle", "gradlew"}, {".java", ".kt"})]
 COPY_IGNORE = [".git", "__pycache__", "node_modules", ".venv", "venv", ".tox", ".nox", ".mypy_cache",
-               ".pytest_cache", ".ruff_cache", ".hypothesis"]
+               ".pytest_cache", ".ruff_cache", ".hypothesis", ".gradle", ".kotlin"]
 class ConfigError(Exception):
     pass
 
@@ -86,7 +87,7 @@ def is_setup(rel: str, cfg) -> bool:
 def runs_language(cmd: str) -> tuple[str, set]:
     """The language a test command runs and its file endings, or ("", set()) when it isn't plainly one runner
     (make, a script, Unity, or a mix): then Bite can't tell, and every code change is checked."""
-    words = {re.sub(r"(?i)(\.exe|[\d.]+)$", "", w.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower())
+    words = {re.sub(r"(?i)(\.exe|\.bat|\.cmd|[\d.]+)$", "", w.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower())
              for w in re.split(r"[\s\"'&|;()]+", cmd) if w}
     hits = [(lang, sufs) for lang, names, sufs in RUNNERS if words & names]
     return hits[0] if len(hits) == 1 else ("", set())
