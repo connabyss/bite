@@ -26,6 +26,9 @@ inputs:
   open-pr:
     description: With write-tests, open a pull request into this pull request's branch that adds the tests Bite wrote, so adding them is one click on Merge. Uses the workflow's own token, which needs contents and pull-requests write permission, and the repository setting that lets GitHub Actions create pull requests. Not on pull requests from forks.
     default: "false"
+  badge-branch:
+    description: "On a push (say to main): check the newest commits (up to max-commits) and keep the Bite score on this branch as badge.json, for a README badge that follows it. Bite makes the branch and puts only badge.json there. Needs contents: write. Off when empty."
+    default: ""
   github-token:
     description: Token for the comment (needs pull-requests write permission).
     default: ${{ github.token }}
@@ -53,6 +56,7 @@ runs:
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         HEAD_REF: ${{ github.event.pull_request.head.ref }}
         HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        BADGE_BRANCH: ${{ inputs.badge-branch }}
       run: |
         post_comment() {
           [ "$COMMENT" = "true" ] || return 0
@@ -71,8 +75,16 @@ runs:
           echo "Bite needs the full history: set fetch-depth: 0 on actions/checkout."
           exit 1
         fi
+        if [ -z "$BASE" ] && [ -n "$BADGE_BRANCH" ]; then
+          # Not a pull request: the badge run. Check the newest commits and keep the score on the badge branch.
+          rm -f bite_proof/badge.json bite_proof/FREE_REPORT.md
+          bite --free --last "$MAX" --free-checks "$MAX" $ARGS || echo "::warning::Bite stopped early, so the badge stays as it was."
+          if [ -f bite_proof/FREE_REPORT.md ]; then cat bite_proof/FREE_REPORT.md >> "$GITHUB_STEP_SUMMARY"; fi
+          python3 "$GITHUB_ACTION_PATH/publish_badge.py"
+          exit 0
+        fi
         if [ -z "$BASE" ]; then
-          echo "Bite's check runs on pull requests (on: pull_request)."
+          echo "Bite's check runs on pull requests (on: pull_request), or on a push with badge-branch set."
           exit 1
         fi
         n=$(git rev-list --count --no-merges "$BASE..HEAD")
