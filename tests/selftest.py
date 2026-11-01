@@ -408,9 +408,9 @@ check("a run that flags nothing says what it verified", "Checked 1 commit(s): a 
 
 # Noise filters for TEST GUARDS NOTHING (from 7 noise flags on two real repos): another OS, a tidy-up, tests
 # written for other code, and a gap a later commit closed. Each would otherwise be flagged.
-def weak_commit(subject, test_src=None):
+def weak_commit(subject, test_src=None, code="x + x if x else 0"):
     root = make_repo()
-    (root / "calc.py").write_text((root / "calc.py").read_text().replace("2 * x", "x + x if x else 0"))
+    (root / "calc.py").write_text((root / "calc.py").read_text().replace("2 * x", code))
     (root / "test_double.py").write_text(test_src or ("import unittest\nfrom calc import double\n\nclass D(unittest.TestCase):\n"
                                                       "    def test_zero(self):\n        self.assertEqual(double(0), 0)\n"))
     commit(root, subject + CLAUDE)
@@ -418,8 +418,12 @@ def weak_commit(subject, test_src=None):
 
 
 other_os = "macOS" if recent.HERE != "mac" else "Windows"
-rc, out = run(weak_commit(f"Double zero right away on {other_os}"), ["--free", "--last", "1"], fake_worker())
+os_check = "x + x if __import__('sys').platform == 'darwin' else 2 * x"
+rc, out = run(weak_commit(f"Double zero right away on {other_os}", code=os_check), ["--free", "--last", "1"], fake_worker())
 check("noise: a change built for another OS isn't flagged", "ITS TESTS DIDN'T NOTICE" not in out and "built for" in out)
+# Naming an OS is not enough: code with no OS check runs here too, so a test here could notice it.
+rc, out = run(weak_commit(f"Double zero right away (reported on {other_os})"), ["--free", "--last", "1"], fake_worker())
+check("trick: naming another OS in passing doesn't hide a change with no OS check in its code", "ITS TESTS DIDN'T NOTICE" in out)
 rc, out = run(weak_commit("chore(lint): tidy double"), ["--free", "--last", "1"], fake_worker())
 check("noise: a tidy-up isn't flagged", "ITS TESTS DIDN'T NOTICE" not in out and "tidy-up" in out)
 rc, out = run(weak_commit("Refactor double into one line"), ["--free", "--last", "1"], fake_worker())
@@ -461,8 +465,11 @@ commit(root, "Box size is text" + CLAUDE)
 rc, out = run(root, ["--free", "--any", "--last", "1"], fake_worker())
 check("a type hint a decorator reads (a dataclass field) still counts as code", "NO TEST NOTICED" in out)
 other_py = 8 if sys.version_info[1] != 8 else 9
-rc, out = run(weak_commit(f"Double zero right away on Python 3.{other_py}"), ["--free", "--last", "1"], fake_worker())
+py_check = f"x + x if __import__('sys').version_info < (3, {other_py + 1}) else 2 * x"
+rc, out = run(weak_commit(f"Double zero right away on Python 3.{other_py}", code=py_check), ["--free", "--last", "1"], fake_worker())
 check("noise: a change for another Python version isn't flagged", "ITS TESTS DIDN'T NOTICE" not in out and f"built for Python 3.{other_py}" in out)
+rc, out = run(weak_commit(f"Double zero right away, first seen on Python 3.{other_py}"), ["--free", "--last", "1"], fake_worker())
+check("trick: naming another Python in passing doesn't hide a change with no version check in its code", "ITS TESTS DIDN'T NOTICE" in out)
 rc, out = run(weak_commit(f"Double zero right away on Python 3.{sys.version_info[1]}"), ["--free", "--last", "1"], fake_worker())
 check("a change for this Python version is still checked", "ITS TESTS DIDN'T NOTICE" in out)
 rc, out = run(weak_commit("perf: double zero faster"), ["--free", "--last", "1"], fake_worker())

@@ -121,6 +121,7 @@ without your change, then call it again. "Couldn't check" is not a pass: say so.
 - It needs the project's tests to run. Tests that need a full git checkout fail on its copies, so those
   commits show as "tests already fail".
 - The worker runs code the project's tests run. Without Docker, that is with your user's rights.
+- Tricks we threw at it, and the ones that still fool it: [TRICKS.md](TRICKS.md).
 
 ## Working on Bite's own code
 

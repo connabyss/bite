@@ -98,6 +98,17 @@ TIDY = re.compile(r"^(chore|style|ci|refactor|build|docs?|tests?)(\([^)]*\))?!?:
 RELEASE = re.compile(r"^(?:(?:release|releasing|prepare release|bump(?:ed|s)?(?: the)? version(?: to)?|version)\s+)?v?\d+(?:\.\d+)+\s*$", re.I)
 # A change for another Python version can't be checked on this one ("py3.8 fix", "for Python 3.14"); "3.12+" covers later ones.
 PY_VERSION = re.compile(r"\b(?:py(?:thon)?\s?|for |drop(?:s|ped|ping)? |on )3\.(\d{1,2})\b(\+| and (?:later|newer|up))?")
+# Words that say a commit fixes something: they outweigh tidy-up and speed-up words ("refactor: fix the crash").
+FIXES = re.compile(r"\b(fix(e[sd]|ing)?|bug(s|fix(es)?)?|correct(s|ed|ing)?|crash(es|ing)?)\b", re.I)
+# Code that checks which OS or Python it runs on: only behind one can a change's code path skip this machine.
+PLATFORM_CODE = re.compile(r"sys\.platform|os\.name\b|platform\.(system|mac_ver|win32_ver)|\bwin(32|64|dows)\b|_WIN32|"
+                           r"\bdarwin\b|\bmacos\b|\blinux\b|cfg!?\(\s*(windows|unix|target_os|target_family)|runtime\.GOOS|"
+                           r"go:build|\+build|process\.platform|os\.platform\(|OperatingSystem\.Is|OSPlatform|IS_OS_|"
+                           r"os\.name\b|msvcrt|winreg|windll|ntpath|WindowsPath|_winapi|win32api|fcntl|termios|"
+                           r"\.(ps1|bat|cmd)\b", re.I)
+VERSION_CODE = re.compile(r"version_info|hexversion|\bPY3\d*\b|\bPY2\b|PY_VERSION|python_version|sys\.version\b|"
+                          r"importlib_metadata|typing_extensions|__future__")
+REVERT = re.compile(r'^(?:Revert|Reapply)\s+"', re.I)
 # Speed-ups: tests check results, not speed, so the slower old code passing them is expected.
 SPEED = re.compile(r"^perf(\([^)]*\))?!?:|\b(faster|speed(s|ing)?[ -]?up|lazy|lazily|optimi[sz]\w*|performance)\b", re.I)
 # dotnet test exits 0 when its --filter matches no test: that's a test that never ran, not a claim that holds.
@@ -112,13 +123,34 @@ BADGE = "[![Bite-proof ✅](https://img.shields.io/badge/Bite--proof-%E2%9C%85-b
 def ran_nothing(cmd: str, out: str) -> bool:
     """A run that passed without running any test (dotnet test on a project that isn't a test project, a filter
     that matched nothing) shows nothing about the code."""
-    if RAN_NOTHING.search(out):
+    if RAN_NOTHING.search(out) or all_skipped(out):
         return True
     if re.search(r"\bdotnet(\.exe)?\s+test\b", cmd):
         return not re.search(r"Total(?: tests)?:\s*[1-9]", out)
     if MAVEN.search(cmd):  # Maven says "Tests run: N" for every module that ran tests
-        return not re.search(r"Tests run: [1-9]", out)
+        return not any(int(n) > int(k) for n, k in re.findall(r"Tests run: (\d+), Failures: \d+, Errors: \d+, Skipped: (\d+)", out))
     return False
+
+
+def all_skipped(out: str) -> bool:
+    """Every test was skipped (pytest's "3 skipped in 0.1s", unittest's "OK (skipped=3)", jest, vitest, node --test,
+    mocha, dotnet test): the run passed without any test checking anything."""
+    def nums(pattern):
+        return [int(x) for x in re.findall(pattern, out, re.M)]
+    if re.search(r"^=*\s*\d+ (?:skipped|deselected)(?:, \d+ (?:skipped|deselected|warnings?))* in [\d.]+s\b", out, re.M):
+        return True  # pytest: a summary with no passed, failed or error in it
+    ran, skipped = nums(r"^Ran (\d+) tests? in "), nums(r"^OK \(skipped=(\d+)\)")
+    if ran and skipped and sum(ran) == sum(skipped):
+        return True  # unittest
+    for total, skip in ((r"^Tests:.*?\b(\d+) total", r"^Tests:.*?\b(\d+) skipped\b"),  # jest
+                        (r"^\s*Tests\s+.*\((\d+)\)\s*$", r"^\s*Tests\s+(\d+) skipped\b"),  # vitest
+                        (r"^\s*(?:#|ℹ) tests (\d+)", r"^\s*(?:#|ℹ) skipped (\d+)")):  # node --test, tap
+        t, k = nums(total), nums(skip)
+        if t and k and sum(t) == sum(k) and sum(t) > 0:
+            return True
+    if nums(r"^\s*(\d+) pending\b") and not any(nums(r"^\s*(\d+) passing\b")) and not nums(r"^\s*\d+ failing\b"):
+        return True  # mocha
+    return bool(re.search(r"Failed:\s*0, Passed:\s*0, Skipped:\s*[1-9]", out))  # dotnet test
 
 
 MAVEN = re.compile(r"(?:^|[\s/\\])(?:mvn|mvnw)(?:\.cmd|\.bat)?(?=\s|$)")
@@ -158,25 +190,33 @@ def commits(root: Path, last: int, since: str = "") -> list:
     return out
 
 
-def skip_reason(subject: str, said: str) -> str:
-    """Why this commit can't say anything here, or "" when it can."""
+def code_text(root: Path, c: dict) -> str:
+    """The commit's code files as they are after it, with their names: where a platform or version check would be."""
+    return "\n".join(n + "\n" + (repo.git(root, "show", f"{c['sha']}:{n}") or "") for n in c["code"])
+
+
+def skip_reason(subject: str, said: str, code: str | None = None) -> str:
+    """Why this commit can't say anything here, or "" when it can. code is the changed files' text (see code_text):
+    naming another OS or Python version only skips a change whose code checks for one, since only then does its
+    code path not run here. Saying it fixes something outweighs tidy-up and speed-up words."""
     text = said.lower()
     built_for = {os_ for os_, words in PLATFORM_WORDS.items() if re.search(rf"\b({words})", text)}
     if "case-insensitive file" in text:
         built_for |= {"win", "mac"}
-    if built_for and HERE not in built_for:
+    fixes = bool(FIXES.search(subject)) and not NOT_CODE.search(subject)
+    if built_for and HERE not in built_for and (code is None or PLATFORM_CODE.search(code)):
         names = {"win": "Windows", "mac": "macOS", "linux": "Linux"}
         return f"built for {'/'.join(sorted(names[o] for o in built_for))}, can't be checked on {names[HERE]}"
     for_py = [(int(m.group(1)), bool(m.group(2))) for m in PY_VERSION.finditer(text)]
     here = sys.version_info[1]
-    if for_py and not any(v == here or (later and here > v) for v, later in for_py):
+    if for_py and not any(v == here or (later and here > v) for v, later in for_py) and (code is None or VERSION_CODE.search(code)):
         versions = "/".join(f"3.{v}" + ("+" if later else "") for v, later in dict.fromkeys(for_py))
         return f"built for Python {versions}, can't be checked on Python 3.{here}"
     if RELEASE.search(subject):
         return "a release, so it only changes the version number"
-    if TIDY.search(subject):
+    if TIDY.search(subject) and not fixes:
         return "a tidy-up, so there's nothing new to check"
-    if SPEED.search(subject) and not re.search(r"\bfix", subject, re.I):
+    if SPEED.search(subject) and not fixes:
         return "a speed-up, and tests check results, not speed"
     return ""
 
@@ -200,21 +240,34 @@ def tests_touch(root: Path, c: dict) -> bool:
     return not names
 
 
-def comment_only(root: Path, sha: str, rel: str) -> bool:
-    """The change to this file is comments or whitespace only: undoing it can't make a test fail."""
-    def code(rev):
-        b = repo.git(root, "cat-file", "blob", f"{rev}:{rel}", raw=True)
-        if b is None:
-            return None
-        suf = Path(rel).suffix.lower()
-        lines = [bite.strip_comment(ln, suf) for ln in b.decode("utf-8", "replace").splitlines()]
-        if suf == ".go":  # Go's any is interface{} under another name (Go 1.18+)
-            lines = [re.sub(r"\binterface\s*\{\s*\}", "any", ln) for ln in lines]
-        return [t for t in ("".join(ln.split()) for ln in lines) if t]
-    old, new = code(f"{sha}^"), code(sha)
-    if old is not None and old == new:
-        return True
-    return Path(rel).suffix.lower() == ".py" and old is not None and same_python(root, sha, rel)
+def bare_code(src: bytes | None, suf: str):
+    """The file's code with comments and whitespace out, for telling whether two versions differ in code."""
+    if src is None:
+        return None
+    lines = bite.code_lines(src.decode("utf-8", "replace"), suf)
+    if suf == ".go":  # Go's any is interface{} under another name (Go 1.18+)
+        lines = [re.sub(r"\binterface\s*\{\s*\}", "any", ln) for ln in lines]
+    return [t for t in ("".join(ln.split()) for ln in lines) if t]
+
+
+def same_code(old: bytes | None, new: bytes | None, suf: str, reads: bool = True) -> bool:
+    """The two versions do the same: only comments or layout differ (and for Python, docstrings or type hints).
+    reads=False leaves docstrings and hints out even in a file that reads them (a --help text, say)."""
+    if old is None or new is None:
+        return False
+    if suf == ".py":
+        a, b = py_tree(old, reads), py_tree(new, reads)
+        if a is not None and b is not None:
+            return a == b  # the syntax tree knows a "#" inside a string isn't a comment
+    return bare_code(old, suf) == bare_code(new, suf)
+
+
+def comment_only(root: Path, sha: str, rel: str, old_rel: str = "") -> bool:
+    """The change to this file is comments or whitespace only: undoing it can't make a test fail. old_rel is the
+    file's name before the commit, when the commit moved it."""
+    old = repo.git(root, "cat-file", "blob", f"{sha}^:{old_rel or rel}", raw=True)
+    new = repo.git(root, "cat-file", "blob", f"{sha}:{rel}", raw=True)
+    return same_code(old, new, Path(rel).suffix.lower())
 
 
 # Decorators and base classes that never read type hints. Any other (dataclass, BaseModel, a web route) may, so
@@ -266,44 +319,77 @@ def drop_hints(t: ast.AST) -> None:
                 and not any((a.asname or a.name).split(".")[0] in used for a in s.names))] or [ast.Pass()]
 
 
-def same_python(root: Path, sha: str, rel: str) -> bool:
-    """The Python file does the same before and after: only docstrings, type hints or layout changed."""
-    def tree(rev):
-        src = repo.git(root, "cat-file", "blob", f"{rev}:{rel}", raw=True)
-        try:
-            t = ast.parse(src or b"")
-        except (SyntaxError, ValueError):
-            return None
+# Code that reads its own docstrings (docopt(__doc__), argparse(description=__doc__)) or type hints at run time:
+# in a file that does, they're code too.
+READS_DOCS = re.compile(rb"__doc__|getdoc\b")
+READS_HINTS = re.compile(rb"__annotations__|get_type_hints|get_annotations|\bsignature\(")
+
+
+def py_tree(src: bytes, reads: bool = True):
+    """What the Python file does, as a syntax tree: docstrings, type hints and layout left out (unless the file
+    reads them at run time and reads is True). None when it doesn't parse."""
+    try:
+        t = ast.parse(src or b"")
+    except (SyntaxError, ValueError):
+        return None
+    if not (reads and READS_DOCS.search(src or b"")):
         for node in ast.walk(t):
             body = getattr(node, "body", None)
             if (isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and body
                     and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant)
                     and isinstance(body[0].value.value, str)):
                 node.body = body[1:] or [ast.Pass()]
+    if not (reads and READS_HINTS.search(src or b"")):
         drop_hints(t)
-        return ast.dump(t)
-    old = tree(f"{sha}^")
-    return old is not None and old == tree(sha)
+    return ast.dump(t)
+
+
+def changed_files(root: Path, sha: str) -> tuple[list, dict]:
+    """The files a commit changed, and the ones it moved ({new name: old name}). A moved file is listed once, by
+    its new name: taking the commit out puts the old content back under the new name, so a fix that rode along
+    with a move is checked like any other (rather than the tests crashing on the missing new name)."""
+    raw = repo.git(root, "diff-tree", "--no-commit-id", "-r", "-z", "--name-status", "-M", sha) or ""
+    parts, names, moved, i = raw.split("\0"), [], {}, 0
+    while i < len(parts) and parts[i]:
+        st = parts[i]
+        if st[:1] in "RC" and i + 2 < len(parts):
+            old, new = parts[i + 1], parts[i + 2]
+            names.append(new)
+            if st[0] == "R" and Path(old).suffix.lower() == Path(new).suffix.lower():
+                moved[new] = old
+            elif st[0] == "R":
+                names.append(old)  # moved into another language: both sides are their own change
+            i += 3
+        else:
+            names.append(parts[i + 1] if i + 1 < len(parts) else "")
+            i += 2
+    return [n for n in names if n], moved
+
+
+def code_paths(c: dict) -> list:
+    """The commit's code files under both their names, for git diff (with -M it shows a move as one change)."""
+    return list(dict.fromkeys(c["code"] + [c.get("moved", {})[n] for n in c["code"] if n in c.get("moved", {})]))
 
 
 def files_of(root: Path, c: dict, cfg) -> None:
-    names = (repo.git(root, "diff-tree", "--no-commit-id", "-r", "--name-only", "--no-renames", c["sha"]) or "").split("\n")
-    names = [n for n in names if n]
+    names, moved = changed_files(root, c["sha"])
     c["tests"] = [n for n in names if bite.is_test_file(n, cfg)]
     c["code"] = [n for n in names if n not in c["tests"] and Path(n).suffix.lower() in repo.CODE_SUFFIXES
-                 and not repo.is_setup(n, cfg) and not comment_only(root, c["sha"], n)]
+                 and not repo.is_setup(n, cfg) and not comment_only(root, c["sha"], n, moved.get(n, ""))]
+    c["moved"] = {n: o for n, o in moved.items() if n in c["code"]}
     # Code in a language the test command doesn't run can't fail a test: taking it out says nothing about it.
     runs = repo.runs_language(cfg.test_cmd)[1]
     c["other_lang"] = [n for n in c["code"] if runs and Path(n).suffix.lower() not in runs]
     c["code"] = [n for n in c["code"] if n not in c["other_lang"]]
-    stat = repo.git(root, "diff", "--shortstat", f"{c['sha']}^", c["sha"], "--", *c["code"]) if c["code"] else ""
+    stat = repo.git(root, "diff", "-M", "--shortstat", f"{c['sha']}^", c["sha"], "--", *code_paths(c)) if c["code"] else ""
     c["lines"] = sum(int(x) for x in re.findall(r"(\d+) (?:insertion|deletion)", stat or ""))
-    claims = bool(CLAIM.search(c["subject"])) and not NOT_CODE.search(c["subject"])
+    # 'Revert "Fix the login crash"' quotes the commit it undoes: that title isn't this commit's claim.
+    claims = bool(CLAIM.search(c["subject"])) and not NOT_CODE.search(c["subject"]) and not REVERT.match(c["subject"])
     c["claims"] = claims
     # Trailers out first: "Co-Authored-By" would match auth in every co-authored commit.
     said = c["subject"] + " " + re.sub(r"(?im)^[\w-]+-by:.*$", "", c["body"])[:400]
     c["serious"] = claims and bool(MATTERS.search(said))
-    c["skip"] = skip_reason(c["subject"], said)
+    c["skip"] = skip_reason(c["subject"], said, code_text(root, c))
     c["test_code"] = [n for n in c["tests"] if Path(n).suffix.lower() in repo.CODE_SUFFIXES]
     # No test is suspect, and so is a new test (it may check nothing the change did): the free pass tells which.
     c["score"] = ((3 if claims else 0) + (2 if not c["tests"] or c["test_code"] else 0) + (1 if 0 < c["lines"] <= 80 else 0)
@@ -406,8 +492,17 @@ def preflight(cfg) -> str:
 def take_out(root: Path, c: dict, folder: Path) -> None:
     """Put this commit's code files in the copy back the way they were before it (its tests stay)."""
     before = c.get("before") or f"{c['sha']}^"  # the live check passes the commit the turn started from
+    if c.get("part_undo"):  # only the piece no test noticed (see unnoticed_part)
+        rest = {k: v for k, v in c.items() if k != "part_undo"}
+        for rel, data in c["part_undo"].items():
+            if data is None:
+                take_out(root, {**rest, "code": [rel]}, folder)
+            else:
+                bite.safe_write(folder, folder / rel, data)
+        return
     for rel in c["code"]:
-        old = repo.git(root, "cat-file", "blob", f"{before}:{rel}", raw=True)
+        # A moved file gets its old content under its new name: the move stays, the change rides out.
+        old = repo.git(root, "cat-file", "blob", f"{before}:{c.get('moved', {}).get(rel, rel)}", raw=True)
         t = folder / rel
         if old is None and t.suffix == ".py" and t.name != "__init__.py":
             # A file the commit created: deleting it would let Python find an installed copy (pip install -e .)
@@ -488,7 +583,7 @@ def doc_example_catches(root: Path, c: dict, folder: Path, fcfg) -> bool:
     for rel in c["code"]:
         if Path(rel).suffix.lower() != ".rs":
             continue
-        old = repo.git(root, "cat-file", "blob", f"{before}:{rel}", raw=True)
+        old = repo.git(root, "cat-file", "blob", f"{before}:{c.get('moved', {}).get(rel, rel)}", raw=True)
         new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True)
         kept = keep_docs(old, new) if old is not None and new is not None else None
         if kept is not None:
@@ -605,9 +700,8 @@ def undo_check(root: Path, c: dict, cfg) -> str:
             return "no tests ran at this commit"
         take_out(root, c, folder)
         undone = bite.run_tests(fcfg, folder)
-        if undone["ok"] and doc_example_catches(root, c, folder, fcfg):
-            return "guarded"  # by a doc example the commit wrote (Rust runs those as tests)
-        if undone["ok"]:  # would be flagged: first rule out the usual harmless reasons
+
+        def flag():  # would be flagged: first rule out the usual harmless reasons
             if c.get("skip"):
                 return f"not flagged: {c['skip']}"
             if c.get("test_code") and not tests_touch(root, c):
@@ -615,10 +709,154 @@ def undo_check(root: Path, c: dict, cfg) -> str:
             if closed_since(root, c, cfg):
                 return "closed since: today's tests catch it"
             return "TEST GUARDS NOTHING" if c.get("test_code") else "unguarded"
+        if undone["ok"] and doc_example_catches(root, c, folder, fcfg):
+            return "guarded"  # by a doc example the commit wrote (Rust runs those as tests)
+        if undone["ok"]:
+            return flag()
+        crashed = bite.load_failure(undone["out"])
+        if not crashed:
+            # Once more: a test that fails now and then (flaky) can fail by luck. Only a test that fails every
+            # time the change is out counts as noticing it.
+            again = bite.run_tests(fcfg, folder)
+            if again["ok"]:
+                c["flaky"] = caught_by(undone["out"]) or "a test"
+                return flag()
         c["caught"] = caught_by(undone["out"])
-        return "guarded" if not bite.load_failure(undone["out"]) else "guarded (tests use the new code)"
+        missed = unnoticed_part(root, c, folder, fcfg)
+        if missed and c.get("skip"):
+            return f"not flagged: {c['skip']}"
+        caught, still = c["caught"], []
+        for p in missed:  # a later commit's test may notice a piece now: each is checked on today's code
+            set_part(c, [p])
+            if today_notices(root, c, cfg) is not True:
+                still.append(p)
+        c["caught"] = caught
+        c.pop("part_undo", None)
+        if still:
+            set_part(c, still)
+            c["part"] = part_text(still)
+            return "unguarded: part"
+        gone = tests_gone_since(root, c, cfg)
+        if gone:  # a test noticed it then, but test files were deleted since: does one still notice it today?
+            caught = c["caught"]
+            if today_notices(root, c, cfg) is False:
+                c["caught"], c["gone"] = caught, gone
+                return "guard gone since"
+            c["caught"] = caught
+        return "guarded" if not crashed else "guarded (tests use the new code)"
     finally:
         shutil.rmtree(folder.parent, ignore_errors=True)
+
+
+MAX_PARTS = 6  # a commit in more pieces than this isn't split: each piece costs a test run
+DEF_LINE = re.compile(r"^(\s*)(?:@\w+\s+)?(?:(?:export|default|async|pub(?:\([^)]*\))?|public|private|protected|internal|static|"
+                      r"final|abstract|override|open|suspend|inline|virtual|unsafe|const|extern)\s+)*"
+                      r"(?:def|class|function|func|fn|struct|interface|enum|record|impl|trait|object|fun|module)\s+"
+                      r"(?:\([^)]*\)\s*)?([A-Za-z_]\w*)")
+MEMBER_LINE = re.compile(r"^(\s*)(?:(?:public|private|protected|internal|static|final|abstract|override|virtual|async|"
+                         r"synchronized)\s+)+[\w<>\[\], ?]*?\s(\w+)\s*\(")
+
+
+def owner(lines: list, at_line: int) -> str:
+    """The function or class a changed line sits in: the nearest definition above it (or on it) that's indented
+    less than it. "" for code at the top of the file."""
+    if not lines:
+        return ""
+    at_line = min(at_line, len(lines) - 1)
+    first = lines[at_line]
+    pad = len(first) - len(first.lstrip())
+    m = DEF_LINE.match(first) or MEMBER_LINE.match(first)
+    if m:
+        return m.group(2)
+    for ln in reversed(lines[:at_line]):
+        if not ln.strip():
+            continue
+        m = DEF_LINE.match(ln) or MEMBER_LINE.match(ln)
+        if m and len(m.group(1)) < pad:
+            return m.group(2)
+    return ""
+
+
+def parts(root: Path, c: dict) -> list:
+    """The commit's code change in pieces: one per function or class it touched in each file (a file it created or
+    deleted is one piece). Each piece is (file, name, the file with only that piece taken out, or None for a file
+    the commit created)."""
+    before = c.get("before") or f"{c['sha']}^"
+    out = []
+    for rel in c["code"]:
+        old = repo.git(root, "cat-file", "blob", f"{before}:{c.get('moved', {}).get(rel, rel)}", raw=True)
+        new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True)
+        if old is None or new is None:
+            out.append((rel, "", old))
+            continue
+        a = old.decode("utf-8", "replace").splitlines(keepends=True)
+        b = new.decode("utf-8", "replace").splitlines(keepends=True)
+        groups = {}
+        for op in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+            if op[0] == "equal":
+                continue
+            _, i1, i2, j1, j2 = op
+            name = owner(b, j1) if j2 > j1 else owner(a, i1)
+            groups.setdefault(name, []).append(op)
+        for name, ops in groups.items():
+            undone = without(a, b, ops)
+            # A piece that's only comments, docstrings or hints isn't one, even where the file reads its
+            # docstrings: an untested --help text isn't worth a flag of its own.
+            if not same_code(new, undone, Path(rel).suffix.lower(), reads=False):
+                out.append((rel, name, undone, (a, b, ops)))
+    return out
+
+
+def without(a: list, b: list, ops: list) -> bytes:
+    """The new lines b with these changes (difflib opcodes from a to b) put back the way a had them."""
+    keep, j = [], 0
+    for _, i1, i2, j1, j2 in sorted(ops, key=lambda o: o[3]):
+        keep += b[j:j1] + a[i1:i2]
+        j = j2
+    return "".join(keep + b[j:]).encode()
+
+
+def part_text(missed: list) -> str:
+    return ", ".join(f"the new file {p[0]}" if p[2] is None else f"`{p[1]}()` in {p[0]}" if p[1] else f"the top of {p[0]}"
+                     for p in missed)
+
+
+def set_part(c: dict, missed: list) -> None:
+    """Record these pieces as the part to take out: all of a file's pieces together in that file."""
+    c["part_undo"] = {}
+    for rel in dict.fromkeys(p[0] for p in missed):
+        mine = [p for p in missed if p[0] == rel]
+        if any(p[2] is None for p in mine):
+            c["part_undo"][rel] = None
+        else:
+            a, b, _ = mine[0][3]
+            c["part_undo"][rel] = without(a, b, [op for p in mine for op in p[3][2]])
+
+
+def unnoticed_part(root: Path, c: dict, folder: Path, fcfg) -> list:
+    """With the whole change out a test failed. Does one fail with each piece of it out alone? A commit can bundle
+    a tested change with an untested one (or add a helper that a test only calls): the tested piece shouldn't vouch
+    for the rest. Returns the pieces no test noticed (as parts gives them), or [] when every piece was noticed, the
+    commit is one piece, or it has too many to try. When no piece alone is noticed, the pieces only count together,
+    so that says nothing either."""
+    ps = parts(root, c)
+    if not 2 <= len(ps) <= MAX_PARTS:
+        return ""
+    news = {rel: repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True) for rel in c["code"]}
+    missed = []
+    for p in ps:
+        rel, undone = p[0], p[2]
+        for r, b in news.items():  # the whole change back in
+            if b is not None:
+                bite.safe_write(folder, folder / r, b)
+        if undone is None:
+            take_out(root, {**c, "code": [rel]}, folder)  # a file the commit created
+        else:
+            bite.safe_write(folder, folder / rel, undone)
+        run = bite.run_tests(fcfg, folder)
+        if run["ok"] and not ran_nothing(bite.tests_cmd(fcfg), run["out"]):
+            missed.append(p)
+    return [] if len(missed) == len(ps) else missed
 
 
 # The names of failing tests, as pytest, unittest, go test, cargo test, jest, dotnet test, Maven and Gradle print them.
@@ -639,10 +877,37 @@ def caught_by(out: str) -> str:
 def closed_since(root: Path, c: dict, cfg) -> bool:
     """A later commit may have closed the gap: on today's code, take this commit's change back out (if it still
     applies) and see whether today's tests now fail where they passed before."""
+    return today_notices(root, c, cfg) is True
+
+
+def tests_gone_since(root: Path, c: dict, cfg) -> list:
+    """Test files that were there at this commit and are deleted in today's code."""
+    names = (repo.git(root, "diff", "--name-only", "--no-renames", "--diff-filter=D", c["sha"], "HEAD") or "").split("\n")
+    return [n for n in names if n and bite.is_test_file(n, cfg)]
+
+
+def part_diff(root: Path, c: dict) -> bytes:
+    """The piece no test noticed (see unnoticed_part) as a patch that puts it in, for git apply -R on today's code."""
+    out = []
+    for rel, undone in c["part_undo"].items():
+        new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True) or b""
+        if undone is None:
+            return b""  # a whole new file: the full diff says the same
+        a = undone.decode("utf-8", "replace").splitlines(keepends=True)
+        b = new.decode("utf-8", "replace").splitlines(keepends=True)
+        out += difflib.unified_diff(a, b, f"a/{rel}", f"b/{rel}")
+    return "".join(ln if ln.endswith("\n") else ln + "\n\\ No newline at end of file\n" for ln in out).encode()
+
+
+def today_notices(root: Path, c: dict, cfg):
+    """On today's code, with this commit's change taken back out (if it still applies), do today's tests fail where
+    they passed before? True or False, or None when Bite can't tell (no later commit, the change no longer applies,
+    or today's tests already fail)."""
     head = repo.git(root, "rev-parse", "HEAD")
     if not head or head == c["sha"]:
-        return False
-    diff = repo.git(root, "diff", "--binary", f"{c['sha']}^", c["sha"], "--", *c["code"], raw=True)
+        return None
+    diff = part_diff(root, c) if c.get("part_undo") else repo.git(
+        root, "diff", "-M", "--binary", f"{c['sha']}^", c["sha"], "--", *code_paths(c), raw=True)
     folder = export(root, head, cfg)
     fcfg = at(cfg, folder)
     if getattr(cfg, "free_cmd", ""):
@@ -650,14 +915,16 @@ def closed_since(root: Path, c: dict, cfg) -> bool:
     try:
         if not diff or subprocess.run(["git", "apply", "-R", "--check", "-"], cwd=folder, input=diff,
                                       capture_output=True).returncode != 0:
-            return False  # today's code moved on: can't tell
+            return None  # today's code moved on: can't tell
         now = bite.run_tests(fcfg, folder)
         if not now["ok"] or ran_nothing(bite.tests_cmd(fcfg), now["out"]):
-            return False
+            return None
         subprocess.run(["git", "apply", "-R", "-"], cwd=folder, input=diff, capture_output=True)
         undone = bite.run_tests(fcfg, folder)
+        if undone["ok"]:
+            return False
         c["caught"] = caught_by(undone["out"])
-        return not undone["ok"] and not bite.load_failure(undone["out"])
+        return None if bite.load_failure(undone["out"]) else True
     finally:
         shutil.rmtree(folder.parent, ignore_errors=True)
 
@@ -827,7 +1094,7 @@ def written_test(folder: Path, w: dict):
 
 def try_claim(root: Path, c: dict, cfg, budget: float) -> dict:
     res = {"sha": c["sha"], "subject": c["subject"], "status": "holds"}
-    diff = repo.git(root, "diff", f"{c['sha']}^", c["sha"], "--", *c["code"]) or ""
+    diff = repo.git(root, "diff", "-M", f"{c['sha']}^", c["sha"], "--", *code_paths(c)) or ""
     folder = export(root, c["sha"], cfg)
     try:
         w = worker(cfg, folder, c, diff[:12000], budget)
@@ -952,6 +1219,8 @@ def guard_worker(cfg, folder: Path, c: dict, diff: str, budget: float) -> dict:
                               can_use_tool=bite.make_permission(at(cfg, folder), log=lambda *a: None), permission_mode="default",
                               setting_sources=[], env={"ANTHROPIC_API_KEY": bite.load_key()})
     prompt = f"Commit message:\n{c['subject']}\n\n{c['body']}\n\nThe code change in it:\n{diff}"
+    if c.get("part"):
+        prompt += f"\n\nThe project's tests already notice the rest of this change. The part no test notices: {c['part']}. Test that part."
     text, _ = asyncio.run(_agent(opts, prompt))
     return last_json(text)
 
@@ -960,7 +1229,7 @@ def try_guard(root: Path, c: dict, cfg, budget: float) -> dict:
     """A worker writes the missing test; Bite keeps it only if it passes twice with the change in, fails with the
     change taken out (a real failure, not a test that can't load), and a second fresh check calls it fair."""
     res = {"sha": c["sha"], "status": "no test written"}
-    diff = repo.git(root, "diff", f"{c['sha']}^", c["sha"], "--", *c["code"]) or ""
+    diff = repo.git(root, "diff", "-M", f"{c['sha']}^", c["sha"], "--", *code_paths(c)) or ""
     folder = export(root, c["sha"], cfg)
     try:
         w = guard_worker(cfg, folder, c, diff[:12000], budget)
@@ -1050,13 +1319,24 @@ def say(c: dict, newest: str = "") -> tuple[str, str, str]:
                 f"✅ {(('The test ' if one else 'The tests ') + caught) if caught else 'Your tests'} noticed it was gone. "
                 f"If this change breaks later, "
                 f"{'that test' if one else 'they'} will warn you.")
+    if u == "guard gone since":
+        files = ", ".join(f"`{t}`" for t in c.get("gone", [])[:3])
+        return ("gap", "⚠️ ITS TEST IS GONE", f"⚠️ A test noticed it when it was made{f' ({caught})' if caught else ''}, "
+                f"but {files or 'test files'} {'was' if len(c.get('gone', [])) == 1 else 'were'} deleted later, and with "
+                "it taken out of today's code every test still passes. **Next:** put back a test that fails without it.")
+    if u == "unguarded: part":
+        return ("gap", "⚠️ PART NOT NOTICED", f"⚠️ Your tests noticed part of this change{f' ({caught})' if caught else ''}, "
+                f"but not {c.get('part') or 'all of it'}: with only that part taken out, every test still passes. "
+                "If it breaks later, nothing warns you. **Next:** add a test that fails without it.")
+    flaky = (f"({c['flaky'].replace('`', '')} failed once without it, then passed: it fails now and then, so it can't "
+             "be counted on.) ") if c.get("flaky") else ""
     if u.startswith("unguarded"):
-        return ("gap", "⚠️ NO TEST NOTICED", "⚠️ " + ("If this fix wandered off, nothing would notice. A test would. " if ROAST[0] else
+        return ("gap", "⚠️ NO TEST NOTICED", "⚠️ " + flaky + ("If this fix wandered off, nothing would notice. A test would. " if ROAST[0] else
                 "No test noticed it was gone. If it breaks later, nothing warns you. ")
                 + "**Next:** add a test that fails without it.")
     if u == "TEST GUARDS NOTHING":
         mine = ", ".join(f"`{t}`" for t in c.get("test_code", []))
-        return ("odd", "⚠️ ITS TESTS DIDN'T NOTICE", f"⚠️ {'These' if ROAST[0] else 'This commit added'} tests"
+        return ("odd", "⚠️ ITS TESTS DIDN'T NOTICE", f"⚠️ {flaky}{'These' if ROAST[0] else 'This commit added'} tests"
                 f"{f' ({mine})' if mine else ''}" + (" are looking the other way. " if ROAST[0] else
                 ", but they didn't notice it was gone either, so they check something else. ")
                 + "**Next:** make one fail without the change.")
@@ -1299,14 +1579,17 @@ def write_results(root: Path, cs: list, none: str = "", error: str = "", newest:
     return p
 
 
-def undo_steps(root: Path, sha: str, files: list) -> list:
+def undo_steps(root: Path, sha: str, files: list, moved: dict | None = None) -> list:
     """The commands that take a commit's code change back out: restore the files it edited, delete the ones it
-    created. `git checkout <sha>^ -- <file>` fails for a file the commit added, so it can't carry those."""
-    restored, created = [], []
+    created. `git checkout <sha>^ -- <file>` fails for a file the commit added, so it can't carry those. A file it
+    moved gets its old content under its new name."""
+    restored, created, steps = [], [], []
     for rel in files:
+        if (moved or {}).get(rel):
+            steps.append(f"git show {sha}^:{moved[rel]} > {rel}")
+            continue
         target = restored if repo.git(root, "cat-file", "blob", f"{sha}^:{rel}", raw=True) is not None else created
         target.append(rel)
-    steps = []
     if created:
         steps.append("rm -f " + " ".join(created))
     if restored:
@@ -1321,7 +1604,16 @@ def write_free(root: Path, cfg, flagged: list) -> Path:
              "warn you if the change broke. This check is free; no AI was used.", ""]
     for i, c in enumerate(flagged, 1):
         sha = c["sha"]
-        steps = undo_steps(root, sha, c["code"])
+        steps = undo_steps(root, sha, c["code"], c.get("moved"))
+        if c.get("part_undo"):  # only the piece no test noticed: its file with just that piece taken out
+            steps = []
+            for rel, data in c["part_undo"].items():
+                if data is None:
+                    steps.append(f"rm -f {rel}")
+                    continue
+                keep = proof_dir(root) / f"{sha[:8]}_part_{Path(rel).name}"
+                keep.write_bytes(data)
+                steps.append(f"cp {keep.as_posix()} {rel}")
         lines += [f"## {i}. {sha[:8]} {c['subject']}", "", f"- What Bite saw: {say(c)[2][3:]}",
                   f"- Code it changed: {', '.join(c['code'])}", "", "Check it yourself (a throwaway copy; your checkout "
                   "isn't touched):", "", "```", f"git worktree add ../bite_check {sha}", "cd ../bite_check",
@@ -1654,7 +1946,7 @@ def main(argv=None):
     except (OSError, ValueError):
         kept = []
     free = cs[:opt("--free-checks", 6)]
-    print(f"  free check of {len(free)}: each runs the tests twice (with and without the change)", flush=True)
+    print(f"  free check of {len(free)}: each runs the tests with and without the change", flush=True)
     for c in free:
         c["undo"] = undo_check(root, c, cfg)
         if c["undo"].startswith("unguarded"):
