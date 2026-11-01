@@ -722,10 +722,27 @@ def undo_check(root: Path, c: dict, cfg) -> str:
                 c["flaky"] = caught_by(undone["out"]) or "a test"
                 return flag()
         c["caught"] = caught_by(undone["out"])
-        part = unnoticed_part(root, c, folder, fcfg)
-        if part:
-            c["part"] = part
-            return f"not flagged: {c['skip']}" if c.get("skip") else "unguarded: part"
+        missed = unnoticed_part(root, c, folder, fcfg)
+        if missed and c.get("skip"):
+            return f"not flagged: {c['skip']}"
+        caught, still = c["caught"], []
+        for p in missed:  # a later commit's test may notice a piece now: each is checked on today's code
+            set_part(c, [p])
+            if today_notices(root, c, cfg) is not True:
+                still.append(p)
+        c["caught"] = caught
+        c.pop("part_undo", None)
+        if still:
+            set_part(c, still)
+            c["part"] = part_text(still)
+            return "unguarded: part"
+        gone = tests_gone_since(root, c, cfg)
+        if gone:  # a test noticed it then, but test files were deleted since: does one still notice it today?
+            caught = c["caught"]
+            if today_notices(root, c, cfg) is False:
+                c["caught"], c["gone"] = caught, gone
+                return "guard gone since"
+            c["caught"] = caught
         return "guarded" if not crashed else "guarded (tests use the new code)"
     finally:
         shutil.rmtree(folder.parent, ignore_errors=True)
@@ -782,30 +799,53 @@ def parts(root: Path, c: dict) -> list:
             name = owner(b, j1) if j2 > j1 else owner(a, i1)
             groups.setdefault(name, []).append(op)
         for name, ops in groups.items():
-            keep, j = [], 0
-            for _, i1, i2, j1, j2 in sorted(ops, key=lambda o: o[3]):
-                keep += b[j:j1] + a[i1:i2]
-                j = j2
-            undone = "".join(keep + b[j:]).encode()
+            undone = without(a, b, ops)
             # A piece that's only comments, docstrings or hints isn't one, even where the file reads its
             # docstrings: an untested --help text isn't worth a flag of its own.
             if not same_code(new, undone, Path(rel).suffix.lower(), reads=False):
-                out.append((rel, name, undone))
+                out.append((rel, name, undone, (a, b, ops)))
     return out
 
 
-def unnoticed_part(root: Path, c: dict, folder: Path, fcfg) -> str:
+def without(a: list, b: list, ops: list) -> bytes:
+    """The new lines b with these changes (difflib opcodes from a to b) put back the way a had them."""
+    keep, j = [], 0
+    for _, i1, i2, j1, j2 in sorted(ops, key=lambda o: o[3]):
+        keep += b[j:j1] + a[i1:i2]
+        j = j2
+    return "".join(keep + b[j:]).encode()
+
+
+def part_text(missed: list) -> str:
+    return ", ".join(f"the new file {p[0]}" if p[2] is None else f"`{p[1]}()` in {p[0]}" if p[1] else f"the top of {p[0]}"
+                     for p in missed)
+
+
+def set_part(c: dict, missed: list) -> None:
+    """Record these pieces as the part to take out: all of a file's pieces together in that file."""
+    c["part_undo"] = {}
+    for rel in dict.fromkeys(p[0] for p in missed):
+        mine = [p for p in missed if p[0] == rel]
+        if any(p[2] is None for p in mine):
+            c["part_undo"][rel] = None
+        else:
+            a, b, _ = mine[0][3]
+            c["part_undo"][rel] = without(a, b, [op for p in mine for op in p[3][2]])
+
+
+def unnoticed_part(root: Path, c: dict, folder: Path, fcfg) -> list:
     """With the whole change out a test failed. Does one fail with each piece of it out alone? A commit can bundle
     a tested change with an untested one (or add a helper that a test only calls): the tested piece shouldn't vouch
-    for the rest. Returns the pieces no test noticed, in words ("`total()` in shop.py"), or "" when every piece was
-    noticed, the commit is one piece, or it has too many to try. When no piece alone is noticed, the pieces only
-    count together, so that says nothing either."""
+    for the rest. Returns the pieces no test noticed (as parts gives them), or [] when every piece was noticed, the
+    commit is one piece, or it has too many to try. When no piece alone is noticed, the pieces only count together,
+    so that says nothing either."""
     ps = parts(root, c)
     if not 2 <= len(ps) <= MAX_PARTS:
         return ""
     news = {rel: repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True) for rel in c["code"]}
     missed = []
-    for rel, name, undone in ps:
+    for p in ps:
+        rel, undone = p[0], p[2]
         for r, b in news.items():  # the whole change back in
             if b is not None:
                 bite.safe_write(folder, folder / r, b)
@@ -815,12 +855,8 @@ def unnoticed_part(root: Path, c: dict, folder: Path, fcfg) -> str:
             bite.safe_write(folder, folder / rel, undone)
         run = bite.run_tests(fcfg, folder)
         if run["ok"] and not ran_nothing(bite.tests_cmd(fcfg), run["out"]):
-            missed.append((rel, name, undone))
-    if not missed or len(missed) == len(ps):
-        return ""
-    c["part_undo"] = {rel: undone for rel, _, undone in missed}
-    return ", ".join(f"the new file {rel}" if undone is None else f"`{name}()` in {rel}" if name else f"the top of {rel}"
-                     for rel, name, undone in missed)
+            missed.append(p)
+    return [] if len(missed) == len(ps) else missed
 
 
 # The names of failing tests, as pytest, unittest, go test, cargo test, jest, dotnet test, Maven and Gradle print them.
@@ -841,10 +877,37 @@ def caught_by(out: str) -> str:
 def closed_since(root: Path, c: dict, cfg) -> bool:
     """A later commit may have closed the gap: on today's code, take this commit's change back out (if it still
     applies) and see whether today's tests now fail where they passed before."""
+    return today_notices(root, c, cfg) is True
+
+
+def tests_gone_since(root: Path, c: dict, cfg) -> list:
+    """Test files that were there at this commit and are deleted in today's code."""
+    names = (repo.git(root, "diff", "--name-only", "--no-renames", "--diff-filter=D", c["sha"], "HEAD") or "").split("\n")
+    return [n for n in names if n and bite.is_test_file(n, cfg)]
+
+
+def part_diff(root: Path, c: dict) -> bytes:
+    """The piece no test noticed (see unnoticed_part) as a patch that puts it in, for git apply -R on today's code."""
+    out = []
+    for rel, undone in c["part_undo"].items():
+        new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True) or b""
+        if undone is None:
+            return b""  # a whole new file: the full diff says the same
+        a = undone.decode("utf-8", "replace").splitlines(keepends=True)
+        b = new.decode("utf-8", "replace").splitlines(keepends=True)
+        out += difflib.unified_diff(a, b, f"a/{rel}", f"b/{rel}")
+    return "".join(ln if ln.endswith("\n") else ln + "\n\\ No newline at end of file\n" for ln in out).encode()
+
+
+def today_notices(root: Path, c: dict, cfg):
+    """On today's code, with this commit's change taken back out (if it still applies), do today's tests fail where
+    they passed before? True or False, or None when Bite can't tell (no later commit, the change no longer applies,
+    or today's tests already fail)."""
     head = repo.git(root, "rev-parse", "HEAD")
     if not head or head == c["sha"]:
-        return False
-    diff = repo.git(root, "diff", "-M", "--binary", f"{c['sha']}^", c["sha"], "--", *code_paths(c), raw=True)
+        return None
+    diff = part_diff(root, c) if c.get("part_undo") else repo.git(
+        root, "diff", "-M", "--binary", f"{c['sha']}^", c["sha"], "--", *code_paths(c), raw=True)
     folder = export(root, head, cfg)
     fcfg = at(cfg, folder)
     if getattr(cfg, "free_cmd", ""):
@@ -852,14 +915,16 @@ def closed_since(root: Path, c: dict, cfg) -> bool:
     try:
         if not diff or subprocess.run(["git", "apply", "-R", "--check", "-"], cwd=folder, input=diff,
                                       capture_output=True).returncode != 0:
-            return False  # today's code moved on: can't tell
+            return None  # today's code moved on: can't tell
         now = bite.run_tests(fcfg, folder)
         if not now["ok"] or ran_nothing(bite.tests_cmd(fcfg), now["out"]):
-            return False
+            return None
         subprocess.run(["git", "apply", "-R", "-"], cwd=folder, input=diff, capture_output=True)
         undone = bite.run_tests(fcfg, folder)
+        if undone["ok"]:
+            return False
         c["caught"] = caught_by(undone["out"])
-        return not undone["ok"] and not bite.load_failure(undone["out"])
+        return None if bite.load_failure(undone["out"]) else True
     finally:
         shutil.rmtree(folder.parent, ignore_errors=True)
 
@@ -1254,6 +1319,11 @@ def say(c: dict, newest: str = "") -> tuple[str, str, str]:
                 f"✅ {(('The test ' if one else 'The tests ') + caught) if caught else 'Your tests'} noticed it was gone. "
                 f"If this change breaks later, "
                 f"{'that test' if one else 'they'} will warn you.")
+    if u == "guard gone since":
+        files = ", ".join(f"`{t}`" for t in c.get("gone", [])[:3])
+        return ("gap", "⚠️ ITS TEST IS GONE", f"⚠️ A test noticed it when it was made{f' ({caught})' if caught else ''}, "
+                f"but {files or 'test files'} {'was' if len(c.get('gone', [])) == 1 else 'were'} deleted later, and with "
+                "it taken out of today's code every test still passes. **Next:** put back a test that fails without it.")
     if u == "unguarded: part":
         return ("gap", "⚠️ PART NOT NOTICED", f"⚠️ Your tests noticed part of this change{f' ({caught})' if caught else ''}, "
                 f"but not {c.get('part') or 'all of it'}: with only that part taken out, every test still passes. "

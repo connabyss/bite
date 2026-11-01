@@ -218,3 +218,79 @@ def test_a_piece_that_only_changes_a_docstring_is_not_named(tmp_path):
                  "tests/test_shop.py": LABEL_TEST.replace("label('tea')", "label(' tea ')")})
     commit(root, "Fix labels with spaces")
     assert only(root)["result"] == "noticed"
+
+
+TOTAL_TEST = "from shop import total\n\n\ndef test_total():\n    assert total([0.1, 0.2]) == 0.3\n"
+
+
+def test_a_fix_whose_test_was_deleted_later_is_not_called_guarded(tmp_path):
+    root = make(tmp_path)
+    write(root, {"shop.py": ROUNDED, "tests/test_total.py": TOTAL_TEST})
+    commit(root, "Fix total rounding")
+    (root / "tests" / "test_total.py").unlink()
+    commit(root, "Remove slow test")
+    r = [x for x in bite(root, 2)["commits"] if x["subject"] == "Fix total rounding"][0]
+    assert r["result"] == "no_test_noticed" and r["label"] == "ITS TEST IS GONE" and "tests/test_total.py" in r["detail"], r
+    import ask
+    _, label, why = ask.verdict({"undo": "guard gone since", "gone": ["tests/test_total.py"]})
+    assert label.endswith("ITS TEST IS GONE") and "tests/test_total.py" in why
+
+
+def test_a_deleted_test_file_with_another_test_still_guarding_is_noticed(tmp_path):
+    root = make(tmp_path)
+    write(root, {"shop.py": ROUNDED, "tests/test_total.py": TOTAL_TEST})
+    commit(root, "Fix total rounding")
+    (root / "tests" / "test_total.py").rename(root / "tests" / "test_money.py")
+    commit(root, "Move the total test")
+    r = [x for x in bite(root, 2)["commits"] if x["subject"] == "Fix total rounding"][0]
+    assert r["result"] == "noticed", r
+
+
+def test_a_piece_a_later_test_notices_is_not_named(tmp_path):
+    root = make(tmp_path)
+    write(root, {"shop.py": ROUNDED.replace("name.title()", "name.strip().title()"),
+                 "tests/test_shop.py": LABEL_TEST.replace("label('tea')", "label(' tea ')")})
+    commit(root, "Fix total rounding")
+    write(root, {"tests/test_total.py": TOTAL_TEST})
+    commit(root, "Test the rounding")
+    assert only(root, 2)["result"] == "noticed"
+
+
+def test_a_deleted_test_is_not_called_gone_when_bite_cant_tell(tmp_path):
+    # Today's code moved on (the fix no longer comes out cleanly), so Bite can't check today: it keeps "noticed".
+    root = make(tmp_path)
+    write(root, {"shop.py": ROUNDED, "tests/test_total.py": TOTAL_TEST})
+    commit(root, "Fix total rounding")
+    (root / "tests" / "test_total.py").unlink()
+    write(root, {"shop.py": ROUNDED.replace("round(sum(prices), 2)", "round(sum(prices), 2) or 0")})
+    commit(root, "Remove slow test and tidy total")
+    r = [x for x in bite(root, 2)["commits"] if x["subject"] == "Fix total rounding"][0]
+    assert r["result"] == "noticed", r
+
+
+def test_today_takes_out_only_the_piece_not_the_whole_change(tmp_path):
+    # With a later commit on top, Bite checks the unnoticed piece on today's code too. Taking the whole change out
+    # there would let test_label vouch for total() again.
+    root = make(tmp_path)
+    write(root, {"shop.py": ROUNDED.replace("name.title()", "name.strip().title()"),
+                 "tests/test_shop.py": LABEL_TEST.replace("label('tea')", "label(' tea ')")})
+    commit(root, "Fix total rounding")
+    write(root, {"README.md": "shop\n"})
+    commit(root, "Add a readme")
+    r = only(root, 2)
+    assert r["label"] == "PART NOT NOTICED" and "total() in shop.py" in r["detail"], r
+
+
+def test_two_unnoticed_pieces_in_one_file_come_out_together(tmp_path):
+    root = make(tmp_path, {"shop.py": SHOP + "\n\ndef tax(x):\n    return x\n"})
+    write(root, {"shop.py": ROUNDED.replace("name.title()", "name.strip().title()") + "\n\ndef tax(x):\n    return x * 1.2\n",
+                 "tests/test_shop.py": LABEL_TEST.replace("label('tea')", "label(' tea ')")})
+    commit(root, "Fix total rounding and tax")
+    c = recent.commits(root, 1)[0]
+    recent.files_of(root, c, recent.repo.load_cfg(root))
+    ps = [p for p in recent.parts(root, c) if p[1] in ("total", "tax")]
+    recent.set_part(c, ps)
+    both = c["part_undo"]["shop.py"].decode()
+    assert "return sum(prices)" in both and "return x\n" in both and "strip()" in both
+    r = only(root)
+    assert "total() in shop.py" in r["detail"] and "tax() in shop.py" in r["detail"], r

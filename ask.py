@@ -216,6 +216,9 @@ def verdict(c: dict) -> tuple:
         mine = ", ".join(c.get("test_code", [])[:3])
         return "gap", "⚠️ ITS TESTS DIDN'T NOTICE", (f"It came with tests ({mine}), but they still pass with its code "
                                                      "taken out, so they check something else.")
+    if u == "guard gone since":
+        return "gap", "⚠️ ITS TEST IS GONE", (f"A test noticed it when it was made, but {', '.join(c.get('gone', [])[:3]) or 'its test'} "
+                                             "was deleted later, and today's tests don't notice it.")
     if u == "unguarded: part":
         return "gap", "⚠️ PART NOT NOTICED", (f"A test noticed part of it, but not {c.get('part', 'all of it').replace('`', '')}: "
                                               "with only that part taken out, every test still passes.")
