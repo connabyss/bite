@@ -1596,6 +1596,42 @@ def most_wanted(cs: list, newest: str = "") -> tuple[dict, str] | None:
     return pick, why
 
 
+def remember_score(root: Path, n: int, total: int, head: str) -> dict:
+    """Saves this run's score in bite_proof/scores.json and returns how it compares: {"before": (n, total) of the
+    last run at an older commit, or None; "streak": Bite-proof runs in a row, this one included}. A rerun at the
+    same commit replaces that commit's entry, so running twice doesn't grow the streak."""
+    from datetime import date
+    p = proof_dir(root) / "scores.json"
+    try:
+        old = json.loads(p.read_text(encoding="utf-8"))
+        old = [x for x in old if isinstance(x, dict) and {"noticed", "out_of", "head"} <= x.keys()]
+    except (OSError, ValueError, TypeError):
+        old = []
+    old = [x for x in old if x["head"] != head]
+    new = old[-49:] + [{"date": date.today().isoformat(), "head": head, "noticed": n, "out_of": total}]
+    p.write_text(json.dumps(new, indent=1) + "\n", encoding="utf-8")
+    streak = 0
+    for x in reversed(new):
+        if not x["out_of"] or x["noticed"] != x["out_of"]:
+            break
+        streak += 1
+    return {"before": (old[-1]["noticed"], old[-1]["out_of"]) if old else None, "streak": streak}
+
+
+def trend_words(n: int, total: int, trend: dict | None) -> str:
+    """"up from 1/4 last run", "same as last run", "Bite-proof 3 runs in a row", or "" the first time."""
+    if not trend:
+        return ""
+    if trend["streak"] > 1:
+        return f"Bite-proof {trend['streak']} runs in a row"
+    b = trend["before"]
+    if not b:
+        return ""
+    if b[1] and total and n / total != b[0] / b[1]:
+        return f"{'up' if n / total > b[0] / b[1] else 'down'} from {b[0]}/{b[1]} last run"
+    return "same as last run" if b == (n, total) else f"last run: {b[0]}/{b[1]}"
+
+
 def flat(text: str) -> str:
     """say()'s sentence without its Markdown, for the terminal and the report page."""
     return re.sub(r"\[([^]]+)\]\([^)]+\)", r"\1", text).replace("**", "").replace("`", "")
@@ -1616,7 +1652,7 @@ def commit_link(root: Path) -> str:
     return f"https://github.com/{m.group(1)}/commit/" if m else ""
 
 
-def write_html(root: Path, cs: list, tried: list, seconds: float) -> Path:
+def write_html(root: Path, cs: list, tried: list, seconds: float, trend: dict | None = None) -> Path:
     """One page that says what was checked and how each commit did, to open in a browser or screenshot."""
     import html
     from datetime import datetime
@@ -1643,13 +1679,18 @@ def write_html(root: Path, cs: list, tried: list, seconds: float) -> Path:
         tiles.append((len(false_done), f"false \"done\" of {len(tried)} claims tested", "odd"))
     n, total = score(kinds)
     ring = ""
+    tw = trend_words(n, total, trend)
     if total:  # the score as a ring: the green part is the share of changes a test noticed
         arc = 2 * 3.14159 * 42
         ring = (f'<div class="score {"held" if n == total else "gap"}"><svg viewBox="0 0 100 100" width="104" height="104" role="img" aria-label="Bite score '
                 f'{n} of {total}"><circle cx="50" cy="50" r="42" class="track"/><circle cx="50" cy="50" r="42" class="arc" '
                 f'stroke-dasharray="{arc * n / total:.1f} {arc:.1f}" transform="rotate(-90 50 50)"/>'
                 f'<text x="50" y="49" class="big">{n}/{total}</text><text x="50" y="66" class="small">noticed</text></svg>'
-                f'<div><b>Bite score: {n} of {total}</b><br>'
+                f'<div><b>Bite score: {n} of {total}</b>'
+                + (f' <span class="trend {tw.split()[0].lower()}">'
+                   f'{"↑ " if tw.startswith(("up", "Bite-proof")) else "↓ " if tw.startswith("down") else ""}{e(tw)}</span>'
+                   if tw else "")
+                + '<br>'
                 + ("Every change Bite could check had a test that noticed it." if n == total else
                    f"{total - n} change{'' if total - n == 1 else 's'} could wander off and no test would say a word."
                    if ROAST[0] else f"No test noticed any of the {total} changes Bite could check." if n == 0 else
@@ -1680,7 +1721,7 @@ td:first-child{{white-space:nowrap}} .dot{{display:inline-block;width:9px;height
 .proof b{{color:var(--held)}} .score{{display:flex;gap:18px;align-items:center;margin:24px 0 0}}
 .score .track{{fill:none;stroke:var(--line);stroke-width:10}} .score .arc{{fill:none;stroke:var(--gap);stroke-width:10;stroke-linecap:round}} .score.held .arc{{stroke:var(--held)}}
 .score .big{{fill:var(--fg);font:700 22px system-ui,sans-serif;text-anchor:middle}} .score .small{{fill:var(--mute);font:12px system-ui,sans-serif;text-anchor:middle}}
-.score code{{word-break:break-all}}
+.score code{{word-break:break-all}} .trend{{color:var(--mute);font-weight:400;margin-left:6px}} .trend.up,.trend.bite-proof{{color:var(--held)}} .trend.down{{color:var(--gap)}}
 .wanted{{margin:20px 0 0;border:2px dashed var(--gap);border-radius:10px;padding:12px 16px}}
 .wanted .tag{{display:inline-block;font:700 11px system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;
 color:var(--bg);background:var(--gap);border-radius:4px;padding:2px 7px;margin-bottom:6px}} .wanted b{{display:block}} footer{{margin-top:32px;color:var(--mute);font-size:13px}}
@@ -2324,8 +2365,11 @@ def main(argv=None):
         print(f"\nMost wanted: {mw[0]['sha'][:8]} \"{short(mw[0]['subject'])}\": if you write one test today, make it "
               f"this one ({mw[1]}).")
     n, total = score([say(c)[0] for c in checked])
+    trend = remember_score(root, n, total, repo.git(root, "rev-parse", "HEAD") or "") if total and not since else None
     if total:
+        tw = trend_words(n, total, trend)
         print(f"Bite score: {n}/{total} (a test noticed {n} of the {total} changes Bite could check)."
+              + (f" {tw[0].upper() + tw[1:]}." if tw else "")
               + (f"\nScore badge for your README: {score_badge(n, total)}" if n < total else ""))
     if bite_proof([say(c)[0] for c in checked], tried):
         print(f"\nBite-proof. Nice work. Every change Bite checked had a test that noticed it.\n"
@@ -2336,7 +2380,7 @@ def main(argv=None):
     save_log(root, tried, cs)
     save_missing_tests(root, flagged)
     write_comment(root, cs, newest=newest, tried=tried)
-    print(f"One-page report (open it in your browser): {write_html(root, cs, tried, time.time() - t0)}")
+    print(f"One-page report (open it in your browser): {write_html(root, cs, tried, time.time() - t0, trend)}")
     return 0
 
 
