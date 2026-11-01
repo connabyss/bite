@@ -27,7 +27,7 @@ def test_handshake_and_tool_list():
     assert init["result"]["capabilities"] == {"tools": {}} and init["result"]["serverInfo"]["name"] == "bite"
     assert bite_mcp.answer({"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
     tools = bite_mcp.answer({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})["result"]["tools"]
-    assert [t["name"] for t in tools] == ["check_fix"] and tools[0]["inputSchema"]["type"] == "object"
+    assert [t["name"] for t in tools] == ["check_fix", "ask_bite"] and tools[0]["inputSchema"]["type"] == "object"
     assert bite_mcp.answer({"jsonrpc": "2.0", "id": 3, "method": "nope"})["error"]["code"] == -32601
 
 
