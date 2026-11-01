@@ -1902,6 +1902,31 @@ FENCE_LANG = {".py": "python", ".js": "js", ".mjs": "js", ".cjs": "js", ".ts": "
               ".rs": "rust", ".go": "go", ".cs": "csharp", ".java": "java", ".kt": "kotlin"}
 
 
+MENTION = re.compile(r"(?<![\w@/.])@(?=[A-Za-z0-9])")
+
+
+def no_pings(lines: list) -> list:
+    """A commit title like "thanks @alice" or "Bump @types/node" must not notify anyone when Bite's comment quotes
+    it: an invisible word joiner after the @ keeps GitHub from reading it as a mention. Code (fenced blocks and
+    `inline` spans) is left as it is, so a test Bite wrote still pastes in unchanged."""
+    out, fence = [], ""
+    for ln in lines:
+        st = ln.strip()
+        if fence:
+            if st.startswith(fence):
+                fence = ""
+        elif st.startswith(("~~~~", "```")):
+            fence = st[:4] if st.startswith("~~~~") else "```"
+        else:
+            parts = ln.split("`")
+            ln = "`".join(MENTION.sub("@\u2060", t) if i % 2 == 0 else t for i, t in enumerate(parts))
+        out.append(ln)
+    return out
+
+
+COMMENT_MAX = 65000  # GitHub's limit is 65,536 characters; a little room for what the Action adds
+
+
 def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest: str = "", tried: list = ()) -> Path:
     """The free check in plain words for a pull request comment (the GitHub Action posts it): a verdict, what to
     do next, then one line per commit. none says why nothing was checked, error why Bite couldn't start, and newest
@@ -1914,10 +1939,10 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
     bad = [c for c, k in zip(checked, kinds) if k in ("gap", "odd")]
     wrote = [c for c in bad if (c.get("guard") or {}).get("status") == "WRITTEN"]
     sha = lambda c: f"[`{c['sha'][:8]}`]({link}{c['sha']})" if link else f"`{c['sha'][:8]}`"  # noqa: E731
-    why = lambda c: f" Why: {html.escape(c['why'], quote=False).replace('`', chr(39))}." if c.get("why") else ""  # noqa: E731
+    why = lambda c: f" Why: {html.escape(short(c['why'], 500), quote=False).replace('`', chr(39))}." if c.get("why") else ""  # noqa: E731
     # The verdict first; the commit's own title after it, quoted and small, so it doesn't read as Bite talking.
     line = lambda c, k, w: (f"- {w}" + (why(c) if "tests failed here" in w else "")  # a fail's why is in the heading  # noqa: E731
-                            + f"<br><sub>Commit {sha(c)}: “{html.escape(c['subject'], quote=False)}”</sub>")
+                            + f"<br><sub>Commit {sha(c)}: “{html.escape(short(c['subject'], 200), quote=False)}”</sub>")
     lines = ["<!-- bite-check -->"]
     if error:
         lines += ["### ❌ Bite couldn't start", "", html.escape(error, quote=False), "",
@@ -1972,13 +1997,15 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
         lines += [""] + [line(c, k, re.sub(r"\*\*Next:\*\* .*$", "**Next:** paste in the test Bite wrote (🧪 below).", w)
                               if c in wrote else re.sub(r" \*\*Next:\*\* .*$", "", w) if k == "fail" else w)
                          for c, (k, _, w) in zip(checked, said)]  # a fail's next step is in the heading
+    folds = []  # where each written test's code sits in lines, to leave out if the comment gets too long
     for c in wrote:  # --write-tests: the missing test, folded, ready to paste in
         g = c["guard"]
         fence = "~~~~"  # never closed early by a ``` inside the test
         lines += ["", f"<details><summary>🧪 The missing test for {sha(c)}: passes with the change, fails without it</summary>", "",
                   f"Save it as `{g['test_file']}` and run `{g['run']}`."
-                  + (f" It checks that {html.escape(g['guards'].rstrip('.'), quote=False)[:200]}." if g.get("guards") else ""), "",
-                  fence + FENCE_LANG.get(Path(g["test_file"]).suffix.lower(), ""), g["test"].rstrip(), fence, "", "</details>"]
+                  + (f" It checks that {html.escape(g['guards'].rstrip('.'), quote=False)[:200]}." if g.get("guards") else ""), ""]
+        folds.append((len(lines), g["test_file"]))
+        lines += [fence + FENCE_LANG.get(Path(g["test_file"]).suffix.lower(), ""), g["test"].rstrip(), fence, "", "</details>"]
     run = os.environ.get("GITHUB_RUN_ID", "")
     if wrote and run.isdigit():  # the Action uploads bite_proof/missing_tests/ as a download on the run's page
         url = f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{run}"
@@ -1997,8 +2024,20 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
               + ("The steps to rerun each check yourself are on the job's summary page. " if bad else "")
               + "[What is Bite?](https://github.com/connabyss/bite)", "", "</details>"]
     lines[1] = lines[1].replace("### ", f"### {CAT} ", 1)
+    lines = no_pings(lines)
+    # GitHub refuses a comment over 65,536 characters, and then the Action posts nothing at all. Written tests are
+    # the long part: leave their code out, newest first, until the comment fits (each is saved in missing_tests/).
+    for at, name in reversed(folds):
+        if len("\n".join(lines)) <= COMMENT_MAX:
+            break
+        lines[at:at + 3] = [f"Too long to show with the rest here: it's `bite_proof/missing_tests/{name}` "
+                            "(and in the **bite-missing-tests** download when the Action ran)."]
+    body = "\n".join(lines)
+    if len(body) > COMMENT_MAX:
+        body = body[:COMMENT_MAX - 200].rsplit("\n", 1)[0] + "\n\n…cut here: too long for one GitHub comment. " \
+               "The full report is in bite_proof/ (FREE_REPORT.md)."
     p = proof_dir(root) / "COMMENT.md"
-    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    p.write_text(body + "\n", encoding="utf-8")
     write_results(root, cs, none, error, newest, tried)
     return p
 
