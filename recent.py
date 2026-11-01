@@ -443,12 +443,26 @@ def export(root: Path, sha: str, cfg) -> Path:
     dest = Path(tempfile.mkdtemp(prefix="bite_recent_")) / root.name
     dest.mkdir()
     data = subprocess.run(["git", "archive", "--format=tar", sha], cwd=root, capture_output=True).stdout
-    subprocess.run(["tar", "-x", "-C", str(dest)], input=data, capture_output=True)
+    untar(data, dest)
     lfs_fill(root, dest, data)
     for name in cfg.copy_ignore:  # nothing to do for most repos: ignored files aren't committed
         for p in dest.rglob(name):
             shutil.rmtree(p, ignore_errors=True) if p.is_dir() else None
     return dest
+
+
+def untar(data: bytes, dest: Path) -> None:
+    """Unpack git archive's tar into dest. Python's own tarfile, not the system's tar: git writes file names as
+    UTF-8, and Windows' tar read them in the local code page, so "café.py" came out under another name and the
+    project's tests couldn't find it. Symlinks stay as the repo has them, like tar did; a name that would land
+    outside dest is skipped."""
+    top = dest.resolve()
+    with tarfile.open(fileobj=io.BytesIO(data), encoding="utf-8", errors="surrogateescape") as t:
+        inside = [m for m in t.getmembers() if (top / m.name).resolve().is_relative_to(top)]
+        if hasattr(tarfile, "fully_trusted_filter"):
+            t.extractall(dest, members=inside, filter="fully_trusted")
+        else:  # Python 3.10 before 3.10.12 has no filters
+            t.extractall(dest, members=inside)
 
 
 def lfs_fill(root: Path, dest: Path, tar: bytes) -> int:
