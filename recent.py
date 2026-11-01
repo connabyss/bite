@@ -5,6 +5,7 @@ Bite: did your coding agent's recent "done" commits really do what they said?
     bite --version            print the installed version
     bite --free               step 1 only: no key, no cost
     bite --demo               try it on a tiny made-up project first (free, about 30 seconds)
+    bite --demo comeback      see the comeback alarm: a later commit quietly undoes a fix, and Bite names it
     bite --last 80 --suspects 3 --budget 1.00
     bite --serious            only fix claims about data, money, logins, security, crashes or leaks
     bite --any                check commits even when none of them claims a fix
@@ -30,6 +31,9 @@ Step 1 (free): for each commit that changed code, the change is taken back out a
 still pass, no test shows the change does anything ("NO TEST NOTICED"). If the commit added or changed tests and
 those still pass without its code change, they test nothing it did ("ITS TESTS DIDN'T NOTICE"). Commits that
 claim a fix come first.
+The comeback alarm (free, no test runs): when a checked commit's change is gone from today's code because a later
+commit put the old code back, Bite says so ("UNDONE BY A LATER COMMIT") and names that commit. A later commit
+that says it's a revert counts as done on purpose and is only noted.
 Step 2 (API key, spending capped by --budget): for the top suspects, a fresh worker turns the commit's own claim into one
 small test (with the odd inputs the claim covers) on a copy of the project at that commit. Bite then runs the
 test itself, twice, at that commit and on today's code, and a second fresh check must agree that the test asks
@@ -498,9 +502,95 @@ def doc_example_catches(root: Path, c: dict, folder: Path, fcfg) -> bool:
     return bool(names)
 
 
+def lines_back(diff: bytes) -> bool:
+    """Every hunk of this diff removes a line distinctive enough (10+ characters) to be looked for without its
+    context: a closing bracket or a blank line could match anywhere."""
+    hunks, cur = [], None
+    for ln in diff.decode("utf-8", "replace").splitlines():
+        if ln.startswith("@@"):
+            cur = []
+            hunks.append(cur)
+        elif ln.startswith("diff --git"):
+            cur = None
+        elif cur is not None and ln.startswith("-"):
+            cur.append(ln[1:].strip())
+    return bool(hunks) and all(any(len(x) >= 10 for x in h) for h in hunks)
+
+
+def came_back(root: Path, c: dict) -> str:
+    """The comeback alarm: "" unless this commit's change is gone from today's code. It is gone when the change
+    would apply again, forward, to today's code, and can't be taken back out of it: a later commit put the old code
+    back, and neither the fix's lines nor a name it brought in live on anywhere in those files (moved or rewritten
+    isn't undone). Then "undone since", or "reverted since" when the commit that undid it says it reverts (on
+    purpose), with c["undone_by"] = {"sha", "subject"} for that commit, when Bite can find it. No test runs: it only
+    compares code, so it's free."""
+    sha, code = c["sha"], c.get("code") or []
+    head = repo.git(root, "rev-parse", "HEAD")
+    if not head or head == sha or c.get("before") or not code:
+        return ""
+    if subprocess.run(["git", "merge-base", "--is-ancestor", sha, "HEAD"], cwd=root, capture_output=True).returncode:
+        return ""
+    for rel in code:  # a file the fix changed that's gone today was moved or deleted, which isn't an undo
+        if repo.git(root, "cat-file", "-e", f"{sha}:{rel}") is not None and repo.git(root, "cat-file", "-e", f"HEAD:{rel}") is None:
+            return ""
+    diff = repo.git(root, "diff", "--binary", f"{sha}^", sha, "--", *code, raw=True)
+    if not diff:
+        return ""
+    changed = [ln for ln in diff.decode("utf-8", "replace").splitlines() if ln[:1] in "+-" and ln[:3] not in ("+++", "---")]
+    added = [ln[1:].strip() for ln in changed if ln[0] == "+" and ln[1:].strip()]
+    # Moved or rewritten, not undone: the fix's code (or a name it brought in) still lives in today's files.
+    show = lambda rev: "\n".join(repo.git(root, "show", f"{rev}:{rel}") or "" for rel in code)  # noqa: E731
+    today, before = show("HEAD"), show(f"{sha}^")
+    today_lines = {ln.strip() for ln in today.splitlines()}
+    long_added = [ln for ln in added if len(ln) >= 10]
+    if long_added and sum(ln in today_lines for ln in long_added) * 2 > len(long_added):
+        return ""
+    words = lambda text: set(re.findall(r"[A-Za-z_][A-Za-z0-9_]{3,}", text))  # noqa: E731
+    if (words("\n".join(added)) - words(before)) & words(today):
+        return ""
+    with tempfile.TemporaryDirectory(prefix="bite_back_") as d:  # a scratch index: the user's checkout isn't touched
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(d) / "index")}
+        ok = lambda *a: subprocess.run(["git", *a], cwd=root, env=env, input=diff, capture_output=True).returncode == 0  # noqa: E731
+        context = lines_back(diff)
+
+        def gone(rev: str) -> bool:
+            """At rev, the fix's change would apply again and can't be taken back out."""
+            if not ok("read-tree", rev):
+                return False
+            fwd, back = ok("apply", "--cached", "--check", "-"), ok("apply", "--cached", "--check", "-R", "-")
+            if not fwd and not back and context:
+                # Code added right next to the fix (often at the end of a small file) changes its context lines, so
+                # neither way applies. Then the lines the fix removed decide: are they back, and its own lines gone?
+                fwd, back = ok("apply", "--cached", "--check", "-C0", "-"), ok("apply", "--cached", "--check", "-C0", "-R", "-")
+            return fwd and not back
+
+        if not gone("HEAD"):
+            return ""
+        # Who put the old code back: walking back from today through the commits that touched these files, the
+        # oldest one in the run where the fix is gone (an older undo that was later fixed again doesn't count).
+        later = (repo.git(root, "rev-list", "--topo-order", "--ancestry-path", "-n200", f"{sha}..HEAD", "--", *code) or "").split()
+        culprit = ""
+        for rev in later:
+            if not gone(rev):
+                break
+            culprit = rev
+        else:
+            if len(later) == 200:  # ran out of commits to walk: no name rather than a wrong one
+                culprit = ""
+    if not culprit:
+        return "undone since"
+    c["undone_by"] = {"sha": culprit, "subject": repo.git(root, "log", "-n1", "--format=%s", culprit) or ""}
+    # "Revert ...", "fix #587 by reverting ...": done on purpose, so a note rather than the alarm
+    return "reverted since" if re.search(r"(?i)\brevert", c["undone_by"]["subject"]) else "undone since"
+
+
 def undo_check(root: Path, c: dict, cfg) -> str:
     """'unguarded' when the tests still pass with this commit's code change taken back out; 'TEST GUARDS NOTHING'
-    when that includes the tests the commit itself added or changed (they're kept: only the code is undone)."""
+    when that includes the tests the commit itself added or changed (they're kept: only the code is undone);
+    "undone since" or "reverted since" when a later commit put the old code back (see came_back)."""
+    back = came_back(root, c)
+    if back:  # the change is gone from today's code: whether a test noticed it then matters less than that
+        return back
     folder = export(root, c["sha"], cfg)
     fcfg = at(cfg, folder)
     if getattr(cfg, "free_cmd", ""):  # the faster subset, for this step only
@@ -937,10 +1027,20 @@ SETUP_LINK = "https://github.com/connabyss/bite/blob/main/AGENTS.md#setup-once-y
 def say(c: dict, newest: str = "") -> tuple[str, str, str]:
     """One free-check result in plain words, the same in the terminal, the report, the job page and the pull request
     comment: (kind, short label, one or two sentences). Each answers one question: if this change disappeared, would
-    any test notice? kind is held, gap, odd, fail, none or skip. newest is the pull request's newest commit: tests
+    any test notice? kind is held, gap, odd, back (a later commit undid it), fail, none or skip. newest is the pull request's newest commit: tests
     failing on an older commit are skipped, since they often get fixed later."""
     u, caught = c.get("undo", ""), c.get("caught", "")
     one = caught and " more" not in caught
+    if u in ("undone since", "reverted since"):
+        import html
+        by = c.get("undone_by") or {}
+        who = (f"commit `{by['sha'][:8]}` (“{html.escape(by['subject'], quote=False).replace('`', chr(39))}”)"
+               if by else "a later commit")
+        if u == "reverted since":
+            return "skip", "➖ reverted on purpose", f"➖ {who[0].upper() + who[1:]} reverted it on purpose, so Bite didn't check it."
+        return ("back", "🔁 UNDONE BY A LATER COMMIT", f"🔁 {'This fix slipped out the back door: ' if ROAST[0] else ''}"
+                f"{who[0].upper() + who[1:] if not ROAST[0] else who} put the old code back, so this fix is gone from "
+                "today's code. **Next:** if that wasn't on purpose, put the fix back with a test that fails without it.")
     if u.startswith("closed since"):
         return "held", "✅ a later test notices", f"✅ A test added in a later commit notices it now{f' ({caught})' if caught else ''}."
     if u == "guarded (tests use the new code)":
@@ -1020,6 +1120,8 @@ def write_html(root: Path, cs: list, tried: list, seconds: float) -> Path:
     tiles = [(len(checked), "commits checked", ""), (kinds.count("held"), "a test noticed", "held"),
              (kinds.count("gap") + kinds.count("odd") + kinds.count("none"), "no test noticed", "gap"),
              (kinds.count("skip") + kinds.count("fail"), "couldn't check", "skip")]
+    if "back" in kinds:
+        tiles.insert(3, (kinds.count("back"), "undone by a later commit", "odd"))
     if tried:
         tiles.append((len(false_done), f"false \"done\" of {len(tried)} claims tested", "odd"))
     page = f"""<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1035,7 +1137,7 @@ main{{max-width:920px;margin:0 auto;padding:32px 16px}} h1{{margin:0;font-size:2
 .tile.odd b{{color:var(--odd)}} .tile.skip b{{color:var(--skip)}}
 table{{width:100%;border-collapse:collapse}} td{{padding:8px 6px;border-top:1px solid var(--line);vertical-align:top}}
 td:first-child{{white-space:nowrap}} .dot{{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--skip)}}
-.held .dot{{background:var(--held)}} .gap .dot,.none .dot{{background:var(--gap)}} .odd .dot,.fail .dot{{background:var(--odd)}}
+.held .dot{{background:var(--held)}} .gap .dot,.none .dot{{background:var(--gap)}} .odd .dot,.fail .dot,.back .dot{{background:var(--odd)}}
 .why{{color:var(--mute);font-size:13px}} .proof{{border:1px solid var(--held);border-radius:10px;padding:12px 14px}}
 .proof b{{color:var(--held)}} footer{{margin-top:32px;color:var(--mute);font-size:13px}}
 </style>
@@ -1092,6 +1194,13 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
                   "Bite can't ask its question while your tests fail on the newest commit.", "",
                   "**Next:** fix them first. Bite checks again on your next push. If they pass on your own computer, "
                   f"Bite may be running them the wrong way: [tell Bite how to run them]({SETUP_LINK})."]
+    elif "back" in kinds:
+        back = kinds.count("back")
+        lines += [f"### 🔁 Bite: {'a fix' if back == 1 else f'{back} fixes'} came undone", "",
+                  f"A later commit put the old code back, so {'the 🔁 fix' if back == 1 else 'each 🔁 fix'} below is gone "
+                  "from today's code. If that was on purpose, all good.", "",
+                  "**Next:** if it wasn't, put the fix back with a test that fails without it, so it can't slip out again."
+                  + (f" Bite also found {len(bad)} change{'' if len(bad) == 1 else 's'} no test noticed (⚠️ below)." if bad else "")]
     elif bad:
         one = len(bad) == 1
         lines += [f"### ⚠️ Bite: no test noticed {len(bad)} change{'' if one else 's'}", "",
@@ -1149,7 +1258,7 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
 
 # --json: the names in results.json are kept from release to release (a change to them bumps "schema").
 RESULT_NAMES = {"held": "noticed", "gap": "no_test_noticed", "odd": "its_tests_didnt_notice", "fail": "tests_fail",
-                "none": "no_tests", "skip": "skipped"}
+                "none": "no_tests", "skip": "skipped", "back": "undone_later"}
 
 
 def results(cs: list, none: str = "", error: str = "", newest: str = "", tried: list = ()) -> dict:
@@ -1163,11 +1272,14 @@ def results(cs: list, none: str = "", error: str = "", newest: str = "", tried: 
              "label": label.split(" ", 1)[1] if " " in label else label, "detail": flat(text)[2:].strip()}
         if c.get("why"):
             r["why"] = c["why"]
+        if c.get("undone_by"):
+            r["undone_by"] = c["undone_by"]
         if (c.get("guard") or {}).get("status") == "WRITTEN":
             r["missing_test"] = {k: c["guard"][k] for k in ("test_file", "run") if c["guard"].get(k)}
         commits.append(r)
     kinds = {r["result"] for r in commits}
     outcome = ("error" if error else "tests_fail" if "tests_fail" in kinds
+               else "undone_later" if "undone_later" in kinds
                else "gaps" if kinds & {"no_test_noticed", "its_tests_didnt_notice"}
                else "no_tests" if "no_tests" in kinds and "noticed" not in kinds
                else "noticed" if "noticed" in kinds else "nothing_checked")
@@ -1294,15 +1406,23 @@ DEMO_STEPS = [
                    "def total(prices):\n    return round(sum(prices), 2)\n"}),
 ]
 
+# bite --demo comeback: the same shop, then a later "simplify" commit quietly puts the old total() back. The comeback
+# alarm notices the rounding fix is gone and names the commit that undid it.
+COMEBACK_STEPS = DEMO_STEPS + [
+    ("Simplify total()", {
+        "shop.py": "def discount(price, percent):\n    return max(0, price - price * percent / 100)\n\n\n"
+                   "def total(prices):\n    return sum(prices)\n"}),
+]
 
-def make_demo(dest: Path) -> Path:
-    """The demo project, built in dest as a git repo with one commit per DEMO_STEPS entry."""
+
+def make_demo(dest: Path, steps: list = DEMO_STEPS) -> Path:
+    """The demo project, built in dest as a git repo with one commit per entry of steps (DEMO_STEPS or COMEBACK_STEPS)."""
     dest.mkdir(parents=True, exist_ok=True)
     git = ["git", "-c", "user.name=Bite demo", "-c", "user.email=demo@example.invalid", "-c", "commit.gpgsign=false"]
     # Fixed dates, so every run makes the same commits (and the same short shas as the README shows).
     env = {**os.environ, "GIT_AUTHOR_DATE": "2026-01-01T12:00:00Z", "GIT_COMMITTER_DATE": "2026-01-01T12:00:00Z"}
     subprocess.run(["git", "init", "-q"], cwd=dest, check=True, capture_output=True)
-    for subject, files in DEMO_STEPS:
+    for subject, files in steps:
         for name, text in files.items():
             (dest / name).write_text(text, encoding="utf-8", newline="\n")
         subprocess.run([*git, "add", "-A"], cwd=dest, check=True, capture_output=True)
@@ -1315,14 +1435,21 @@ def make_demo(dest: Path) -> Path:
 
 
 def demo(argv: list) -> int:
-    dest = make_demo(Path(tempfile.mkdtemp(prefix="bite_demo_")) / "tiny-shop")
-    print(f"Bite demo: a made-up project in {dest}\n"
-          "Two of its commits say they fixed something. One added a test for its fix, the other didn't.\n"
-          "Bite takes each fix back out and runs the tests, to see whether any test notices it's gone.\n", flush=True)
+    comeback = "comeback" in argv
+    dest = make_demo(Path(tempfile.mkdtemp(prefix="bite_demo_")) / "tiny-shop", COMEBACK_STEPS if comeback else DEMO_STEPS)
+    if comeback:
+        print(f"Bite demo, the comeback alarm: a made-up project in {dest}\n"
+              "Two of its commits fixed something. Then a later commit, \"Simplify total()\", quietly put the old\n"
+              "code back for one of them. Bite looks for fixes that are gone from today's code, and names who undid them.\n",
+              flush=True)
+    else:
+        print(f"Bite demo: a made-up project in {dest}\n"
+              "Two of its commits say they fixed something. One added a test for its fix, the other didn't.\n"
+              "Bite takes each fix back out and runs the tests, to see whether any test notices it's gone.\n", flush=True)
     here = os.getcwd()
     os.chdir(dest)
     try:
-        rc = main(["--free", *(a for a in argv if a not in ("--demo", "--free"))])
+        rc = main(["--free", *(a for a in argv if a not in ("--demo", "--free", "comeback"))])
     finally:
         os.chdir(here)
     print("\nThat was the demo; nothing of yours was touched. To check your own project: go into it and run bite --free")
@@ -1403,7 +1530,7 @@ def main(argv=None):
                 print(f"Bite: {argv[i]} needs {need}, got {argv[i + 1]!r}.")
                 return 2
             i += 2
-        elif argv[i] in FLAGS:
+        elif argv[i] in FLAGS or (argv[i] == "comeback" and i and argv[i - 1] == "--demo"):
             i += 1
         else:
             print(f"Bite: unknown option {argv[i]!r}. Run bite --help for the options.")
@@ -1560,12 +1687,14 @@ def main(argv=None):
             c["guard"] = try_guard(root, c, cfg, min(left - 0.05, budget / n + 0.10))
             print(f"    {'wrote one: passes with the change, fails without it' if c['guard']['status'] == 'WRITTEN' else c['guard']['status']}",
                   flush=True)
-    for c in flagged:
+    back = [c for c in cs if c.get("undo") == "undone since"]
+    for c in back + flagged:
         print(f"{say(c)[1]}: {c['sha'][:8]} \"{short(c['subject'])}\": {flat(say(c)[2])[2:].strip()}")
     checked = [c for c in cs if c.get("undo")]
     held = [c for c in checked if c["undo"].startswith(("guarded", "closed since"))]
     print(f"\nChecked {len(checked)} commit(s): a test noticed {len(held)}, no test noticed {len(flagged)}, "
-          f"{len(checked) - len(held) - len(flagged)} couldn't be checked or skipped"
+          + (f"undone by a later commit {len(back)}, " if back else "")
+          + f"{len(checked) - len(held) - len(flagged) - len(back)} couldn't be checked or skipped"
           + (f"; {n_out} outside the tests' reach" if n_out else "")
           + (f"; {len(other)} in code your tests can't run" if other else "") + ".")
     if bite_proof([say(c)[0] for c in checked], tried):

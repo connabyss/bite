@@ -51,6 +51,8 @@ bite --free
    cargo, go, dotnet: theirs; Maven and Gradle: Java and Kotlin). A commit that changed only other code is listed as code the tests can't run.
    Before flagging, it rules out the usual harmless reasons and says which: a change built for another OS than
    the one it runs on, a tidy-up commit, tests that don't name the changed code, or a gap a later commit closed.
+   The comeback alarm, also free: if a later commit put a checked fix's old code back, Bite says "UNDONE BY A LATER
+   COMMIT" and names that commit (`bite --demo comeback`). A later commit that says it's a revert is only noted.
 3. Paid (your own API key), for the top suspects: a fresh worker writes one small test of the commit's own
    claim, including the odd inputs the claim covers, on a copy of the project at that commit. Bite runs the test
    itself, twice, on that commit and on today's code. A second fresh check must agree the test asks only for what the commit claimed

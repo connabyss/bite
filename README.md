@@ -233,17 +233,38 @@ requests**. Without that tick, Bite still puts the test on its branch and the co
 yourself. GitHub doesn't run your checks on a pull request a workflow opened, so they run once you merge it into your
 branch; Bite has already run the test both ways. Not on pull requests from forks.
 
+## The comeback alarm: a fix that quietly came undone
+
+A fix with no test can be undone by a later commit, and nobody hears about it: a "simplify", a bad merge, an old
+copy pasted back. Every free check also looks at whether each fix is still in today's code. If a later commit put
+the old code back, Bite says so and names that commit:
+
+```
+  e5c329ec 🔁 UNDONE BY A LATER COMMIT   Fix totals showing long decimals like 0.30000000000000004
+
+🔁 UNDONE BY A LATER COMMIT: e5c329ec "Fix totals showing long decimals like 0.30000000000000004": Commit e8b75da4
+(“Simplify total()”) put the old code back, so this fix is gone from today's code.
+```
+
+`bite --demo comeback` shows it on a tiny made-up shop. It's free and runs no tests: Bite only checks whether the
+fix's own change would apply again to today's code (and can't be taken back out of it). It works for fixes a test
+noticed too, since a fix and its test can be deleted together. A later commit whose title says it's a revert was
+done on purpose, so that one gets a quiet note instead of the alarm. A fix rewritten into new code doesn't count as
+undone.
+
 ## Results for other tools
 
 `bite --json` prints the results as JSON, for scripts, dashboards and other bots; everything else Bite says goes to
 stderr. Every run also saves them in `bite_proof/results.json`. These names stay the same from release to release
 (a change to them would bump `schema`):
 
-- `outcome`: `noticed` (a test noticed every change), `gaps` (no test noticed at least one), `tests_fail`,
-  `no_tests`, `nothing_checked` or `error` (`message` says why).
+- `outcome`: `noticed` (a test noticed every change), `gaps` (no test noticed at least one), `undone_later` (a
+  later commit put the old code back for at least one fix), `tests_fail`, `no_tests`, `nothing_checked` or `error`
+  (`message` says why).
 - `commits`: one per commit checked, with `sha`, `subject`, `result` (`noticed`, `no_test_noticed`,
-  `its_tests_didnt_notice`, `tests_fail`, `no_tests` or `skipped`), `label` and `detail` (the words Bite shows),
-  and `why` or `missing_test` when there is one.
+  `its_tests_didnt_notice`, `undone_later`, `tests_fail`, `no_tests` or `skipped`), `label` and `detail` (the words
+  Bite shows), and `why`, `missing_test` or `undone_by` (`sha` and `subject` of the commit that undid it) when there
+  is one.
 - `false_done`: each claim the paid step proved false, with `sha`, `subject`, `bug` and `today`.
 
 ## Bite-proof badge

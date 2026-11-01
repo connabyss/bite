@@ -200,6 +200,12 @@ def name_of(c: dict) -> str:
 def verdict(c: dict) -> tuple:
     """(kind, one plain sentence) for one checked commit. kind is held, gap or cant."""
     u, caught = c.get("undo", ""), c.get("caught", "")
+    by = c.get("undone_by") or {}
+    who = f"commit {by['sha'][:8]} (\"{by['subject']}\")" if by else "a later commit"
+    if u == "undone since":
+        return "gap", f"{name_of(c)} is gone from today's code: {who} put the old code back."
+    if u == "reverted since":
+        return "cant", f"{name_of(c)} was reverted on purpose by {who}, so there's nothing left to guard."
     if u.startswith("closed since"):
         return "held", f"{name_of(c)} is guarded: a test added later fails with it taken out."
     if u.startswith("guarded"):
