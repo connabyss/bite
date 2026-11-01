@@ -2279,7 +2279,7 @@ def extras(root: Path, cfg) -> list:
         return []
     import configparser
     cp = configparser.ConfigParser(interpolation=None)
-    cp.read(ini, encoding="utf-8")
+    cp.read(ini, encoding="utf-8-sig")
     kit = bite.settings_section(cp)
     cfg.claim_cmd = kit.get("claim_command", "").strip()
     cfg.free_cmd = kit.get("free_test_command", "").strip()
