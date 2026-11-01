@@ -582,11 +582,17 @@ def rust_test_spans(lines: list) -> list:
     return spans
 
 
+# A file read as text and written back keeps every byte, even one that isn't UTF-8 (a Latin-1 or Windows-1252
+# file): read with "replace", a copy with one piece taken out would also change those characters, so a test that
+# reads them fails, and it looks like the test noticed the piece.
+BYTES = "surrogateescape"
+
+
 def keep_rust_tests(old: bytes, new: bytes) -> bytes:
     """The Rust file as it was before the commit, but with the commit's own test modules: taking the change out must
     leave the tests it added in place, as it does for a separate test file."""
-    a = old.decode("utf-8", "replace").splitlines(keepends=True)
-    b = new.decode("utf-8", "replace").splitlines(keepends=True)
+    a = old.decode("utf-8", BYTES).splitlines(keepends=True)
+    b = new.decode("utf-8", BYTES).splitlines(keepends=True)
     sa, sb = rust_test_spans(a), rust_test_spans(b)
     if not sb:
         return old
@@ -597,7 +603,7 @@ def keep_rust_tests(old: bytes, new: bytes) -> bytes:
     after = [ln for i, ln in enumerate(a[at:], at) if i not in gone]
     if before and not before[-1].endswith("\n"):
         before[-1] += "\n"
-    return "".join(before + tests + after).encode()
+    return "".join(before + tests + after).encode("utf-8", BYTES)
 
 
 def rust_code_same(old: bytes | None, new: bytes | None) -> bool:
@@ -608,8 +614,9 @@ def rust_code_same(old: bytes | None, new: bytes | None) -> bool:
     def strip(t: list) -> str:
         inside = {i for s, e in rust_test_spans(t) for i in range(s, e + 1)}  # found once per file, not per line
         return "".join(ln for i, ln in enumerate(t) if i not in inside)
-    return strip(old.decode("utf-8", "replace").splitlines(keepends=True)).split() == \
-        strip(new.decode("utf-8", "replace").splitlines(keepends=True)).split()
+    return strip(old.decode("utf-8", BYTES).splitlines(keepends=True)).split() == \
+        strip(new.decode("utf-8", BYTES).splitlines(keepends=True)).split()
+
 
 
 def is_rust_doc(line: str) -> bool:
@@ -621,8 +628,8 @@ def keep_docs(old: bytes, new: bytes) -> bytes | None:
     """The Rust file as it was before the commit, but with the commit's doc comments (/// and //!) kept. In Rust an
     example in a doc comment is a test (cargo test runs it), so taking it out with the code hides that it tested
     the change. None when the commit added no doc example."""
-    a = old.decode("utf-8", "replace").splitlines(keepends=True)
-    b = new.decode("utf-8", "replace").splitlines(keepends=True)
+    a = old.decode("utf-8", BYTES).splitlines(keepends=True)
+    b = new.decode("utf-8", BYTES).splitlines(keepends=True)
     ops = difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
     if not any(is_rust_doc(ln) and "```" in ln for op, _, _, j1, j2 in ops if op != "equal" for ln in b[j1:j2]):
         return None  # the commit added no doc example (the file's older examples were already there before)
@@ -643,7 +650,7 @@ def keep_docs(old: bytes, new: bytes) -> bytes | None:
             out += stand_in(news[first:], a[:i1])
         out += [ln for ln in olds if not is_rust_doc(ln)]
         out += [ln for ln in news[first:] if is_rust_doc(ln)]
-    kept = "".join(out).encode()
+    kept = "".join(out).encode("utf-8", BYTES)
     return None if kept == old else kept
 
 
@@ -739,8 +746,8 @@ def doctest_catches(root: Path, c: dict, folder: Path, fcfg) -> bool:
         if old is None or new is None:
             continue
         da, db = doc_lines(old), doc_lines(new)
-        a = old.decode("utf-8", "replace").splitlines(keepends=True)
-        b = new.decode("utf-8", "replace").splitlines(keepends=True)
+        a = old.decode("utf-8", BYTES).splitlines(keepends=True)
+        b = new.decode("utf-8", BYTES).splitlines(keepends=True)
         out, docs = [], False
         for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
             if op == "equal":
@@ -753,7 +760,7 @@ def doctest_catches(root: Path, c: dict, folder: Path, fcfg) -> bool:
             out += new_docs + [a[i] for i in range(i1, i2) if not (new_docs and i in da)]
         if not docs:
             continue  # it changed no docstring
-        bite.safe_write(folder, folder / rel, "".join(out).encode())
+        bite.safe_write(folder, folder / rel, "".join(out).encode("utf-8", BYTES))
         changed = True
     if not changed:
         return False
@@ -1029,8 +1036,8 @@ def parts(root: Path, c: dict) -> list:
         if old is None:
             out.append((rel, "", None))
             continue
-        a = old.decode("utf-8", "replace").splitlines(keepends=True)
-        b = new.decode("utf-8", "replace").splitlines(keepends=True)
+        a = old.decode("utf-8", BYTES).splitlines(keepends=True)
+        b = new.decode("utf-8", BYTES).splitlines(keepends=True)
         groups = {}
         sa, sb = (rust_test_spans(a), rust_test_spans(b)) if rel.lower().endswith(".rs") else ([], [])
         inside = lambda spans, lo, hi: all(any(s <= x <= e for s, e in spans) for x in range(lo, hi))  # noqa: E731
@@ -1057,7 +1064,7 @@ def without(a: list, b: list, ops: list) -> bytes:
     for _, i1, i2, j1, j2 in sorted(ops, key=lambda o: o[3]):
         keep += b[j:j1] + a[i1:i2]
         j = j2
-    return "".join(keep + b[j:]).encode()
+    return "".join(keep + b[j:]).encode("utf-8", BYTES)
 
 
 def part_text(missed: list) -> str:
@@ -1142,10 +1149,10 @@ def part_diff(root: Path, c: dict) -> bytes:
         new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True) or b""
         if undone is None:
             return b""  # a whole new file: the full diff says the same
-        a = undone.decode("utf-8", "replace").splitlines(keepends=True)
-        b = new.decode("utf-8", "replace").splitlines(keepends=True)
+        a = undone.decode("utf-8", BYTES).splitlines(keepends=True)
+        b = new.decode("utf-8", BYTES).splitlines(keepends=True)
         out += difflib.unified_diff(a, b, f"a/{rel}", f"b/{rel}")
-    return "".join(ln if ln.endswith("\n") else ln + "\n\\ No newline at end of file\n" for ln in out).encode()
+    return "".join(ln if ln.endswith("\n") else ln + "\n\\ No newline at end of file\n" for ln in out).encode("utf-8", BYTES)
 
 
 def today_notices(root: Path, c: dict, cfg):
