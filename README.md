@@ -7,9 +7,28 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Bite%20free%20check-blue?logo=github)](https://github.com/marketplace/actions/bite-free-check)
 
-**Bite checks whether an AI coding agent's "fixed" is actually true.**
+**Would your tests catch it if the bug came back?**
+
+Bite checks whether an AI coding agent's "fixed" is actually true.
 
 <img alt="bite --demo: one fix is noticed by a test, the other has no test at all" src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-demo.svg" width="760">
+
+## Why you need this
+
+When an AI fixes a bug for you, it often says "Fixed, and I added a test." If you don't read code, you can't tell
+if that's true.
+
+A test is a tiny robot that checks one thing, like "2 + 2 should be 4", and shouts when it isn't. A good test
+shouts if the bug ever comes back. A weak one stays quiet no matter what.
+
+Bite checks your robots. It puts the old bug back on purpose and watches whether any test shouts. It's like
+testing a smoke alarm with real smoke instead of trusting the little green light.
+
+If a test shouts, that fix is guarded. If they all stay quiet, the next change, by you or your AI, could bring the
+bug back and nobody would notice. Bite names that fix, so you can tell your AI: "add a test that fails without
+this fix."
+
+## How it works
 
 It takes each recent fix back out of your code and runs your tests. If they still pass, nothing guards that fix,
 and Bite tells you which one. That free check needs no key and works with pytest, npm test, cargo test, go test,
