@@ -553,7 +553,9 @@ def make_permission(cfg: Config, log=print):
 
 DEFAULT_TEST_FILES = ["test_*", "*_test.*", "test.*", "tests.*", "*.test.*", "*.spec.*", "*_spec.*",
                       "tests/*", "test/*", "__tests__/*", "spec/*",
-                      "*tests.cs", "*test.cs", "*tests.fs", "*test.fs", "*.tests/*", "*.test/*"]  # C#/F# (.NET) names
+                      "*tests.cs", "*test.cs", "*tests.fs", "*test.fs", "*.tests/*", "*.test/*",  # C#/F# (.NET) names
+                      "*test.java", "*tests.java", "*test.kt", "*tests.kt",  # Java and Kotlin names
+                      "*test/java/*", "*test/kotlin/*"]  # Gradle's other test folders: src/integrationTest/java, src/jvmTest/kotlin
 
 
 def is_test_file(rel: str, cfg: Config) -> bool:
@@ -678,6 +680,8 @@ AUTO_COUNTS = [  # common runners' summary lines, so the test count works withou
     (r"^\s*(\d+) tests? (?:passed|failed)\b", r"^\s*(\d+) tests? (?:passed|failed)\b"),  # ava
     (r"^\s*Total:\s+(\d+)\s*$", r"(\d+)"),  # uvu
     (r"^test result: \w+\. (\d+) passed", r"(\d+) (?:passed|failed)(?=;)"),  # cargo
+    # Maven (surefire): the summary line of each module, not the per-class lines that end in "Time elapsed ..."
+    (r"^(?:\[\w+\] )?Tests run: \d+, Failures: \d+, Errors: \d+, Skipped: \d+\s*$", r"Tests run: (\d+)"),
 ]
 
 
@@ -739,10 +743,13 @@ def safe_write(root: Path, target: Path, data: bytes):
 
 LOAD_ERRORS = re.compile(r"ImportError|ModuleNotFoundError|SyntaxError|IndentationError|error(?:s)? during collection|"
                          r"Cannot find module|Parse Error|Failed to load script|could not compile|unresolved import|"
-                         r"error CS\d{4}|error FS\d{4}")
+                         r"error CS\d{4}|error FS\d{4}|"
+                         r"COMPILATION ERROR|Compilation failed|cannot find symbol|Unresolved reference|"
+                         r"^e: \S+\.kts?:", re.M)  # javac and kotlinc through Maven and Gradle
 
 
-CHECK_FAILS = re.compile(r"(?m)^\s*FAIL\b|AssertionError|\bassert\b|Expected|expected|FAILED .*::|✕|\bFAIL\b.*(?:!=|==|got|want)|panicked at")
+CHECK_FAILS = re.compile(r"(?m)^\s*FAIL\b|AssertionError|\bassert\b|Expected|expected|FAILED .*::|✕|\bFAIL\b.*(?:!=|==|got|want)|panicked at|"
+                         r"<<< FAILURE!|^\S+ > .+ FAILED$|AssertionFailedError|ComparisonFailure")  # JUnit (Maven, Gradle)
 
 
 def load_failure(out: str) -> bool:
@@ -809,6 +816,9 @@ def guess_test_command(folder: Path) -> str:
         return "cargo test"
     if (f / "go.mod").is_file():
         return "go test ./..."
+    jvm = jvm_test_command(f)
+    if jvm:
+        return jvm
     if (f / "ProjectSettings" / "ProjectVersion.txt").is_file():
         return ""  # Unity: its tests run inside the Unity editor (-runTests), not with dotnet test
     dotnet = dotnet_target(f)
@@ -817,6 +827,22 @@ def guess_test_command(folder: Path) -> str:
     if any((f / n).exists() for n in ("pytest.ini", "conftest.py", "tox.ini")) or \
             any(f.glob("test*/test_*.py")) or any(f.glob("test_*.py")) or any(f.glob("*/tests/test_*.py")):
         return ("python" if WINDOWS else "python3") + " -m pytest -q"
+    return ""
+
+
+def jvm_test_command(folder: Path) -> str:
+    """Java and Kotlin: the project's own Gradle or Maven wrapper when it has one (it pins the version the project
+    builds with), else the installed gradle or mvn. "" when the folder isn't a Gradle or Maven build."""
+    f = Path(folder)
+    gradle = any((f / n).is_file() for n in ("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"))
+    if gradle or (f / "gradlew").is_file():
+        if (f / "gradlew").is_file() or (f / "gradlew.bat").is_file():
+            return ("gradlew.bat" if WINDOWS else "sh gradlew") + " test"
+        return "gradle test"
+    if (f / "pom.xml").is_file():
+        if (f / "mvnw").is_file() or (f / "mvnw.cmd").is_file():
+            return ("mvnw.cmd" if WINDOWS else "sh mvnw") + " -B test"
+        return "mvn -B test"
     return ""
 
 

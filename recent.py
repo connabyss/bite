@@ -41,7 +41,8 @@ failing test plus the command that runs it.
 missing, on a copy at that commit. Bite runs it itself and keeps it only if it passes twice with the change in,
 fails with the change taken out, and a second fresh check calls it fair. It's shown ready to paste in (and in the pull request comment). Instead of step 2.
 Settings: .bite.ini in the repo (optional; first line [bite], then test_command = ...). claim_command runs one
-test file ({file}); without it Bite adds the file to test_command (for dotnet test it adds a --filter instead).
+test file ({file}); without it Bite adds the file to test_command (for dotnet test, Maven and Gradle it picks the
+test by its class name instead).
 test_covers = the paths the test command can reach (globs, comma-separated, e.g. Assets/Sim/*, tests/*): commits
 that touch none of them are listed as outside the tests' reach, not checked. Code in a language the test command
 doesn't run (TypeScript under pytest) is listed as code the tests can't run, not checked. free_test_command = a
@@ -96,7 +97,8 @@ PY_VERSION = re.compile(r"\b(?:py(?:thon)?\s?|for |drop(?:s|ped|ping)? |on )3\.(
 # Speed-ups: tests check results, not speed, so the slower old code passing them is expected.
 SPEED = re.compile(r"^perf(\([^)]*\))?!?:|\b(faster|speed(s|ing)?[ -]?up|lazy|lazily|optimi[sz]\w*|performance)\b", re.I)
 # dotnet test exits 0 when its --filter matches no test: that's a test that never ran, not a claim that holds.
-RAN_NOTHING = re.compile(r"No test matches the given testcase filter|No test is available in")
+# Gradle stops when its --tests filter matches nothing; Maven's summary says how many ran.
+RAN_NOTHING = re.compile(r"No test matches the given testcase filter|No test is available in|No tests found for given includes")
 DOTNET_FILTER = '--filter "FullyQualifiedName~BiteClaim"'
 ROAST = [False]  # --roast: the same results, worded a little more gently
 # Earned when every change Bite checked had a test that noticed it; a repo can show it in its README.
@@ -108,7 +110,26 @@ def ran_nothing(cmd: str, out: str) -> bool:
     that matched nothing) shows nothing about the code."""
     if RAN_NOTHING.search(out):
         return True
-    return bool(re.search(r"\bdotnet(\.exe)?\s+test\b", cmd)) and not re.search(r"Total(?: tests)?:\s*[1-9]", out)
+    if re.search(r"\bdotnet(\.exe)?\s+test\b", cmd):
+        return not re.search(r"Total(?: tests)?:\s*[1-9]", out)
+    if MAVEN.search(cmd):  # Maven says "Tests run: N" for every module that ran tests
+        return not re.search(r"Tests run: [1-9]", out)
+    return False
+
+
+MAVEN = re.compile(r"(?:^|[\s/\\])(?:mvn|mvnw)(?:\.cmd|\.bat)?(?=\s|$)")
+GRADLE = re.compile(r"(?:^|[\s/\\])(?:gradle|gradlew)(?:\.bat)?(?=\s|$)")
+
+
+def build_folder(folder: Path, rel: str, names: tuple) -> str:
+    """The folder of the Maven module or Gradle project a file belongs to: the nearest folder above it with one of
+    these build files, as a path from the project ("" for the project itself)."""
+    d = posixpath.dirname(rel)
+    while d:
+        if any((Path(folder) / d / n).is_file() for n in names):
+            return d
+        d = posixpath.dirname(d)
+    return ""
 
 
 LFS_HEAD = b"version https://git-lfs.github.com/spec/v1"
@@ -363,9 +384,14 @@ def preflight(cfg) -> str:
         first = words[0].strip('"') if words else ""
         if not first or first.lower() in {"cd", "set", "env", "call", "start"}:
             continue
-        if not shutil.which(first):
+        if (Path(cfg.project) / first).is_file():
+            pass  # the project's own script or wrapper (gradlew.bat, mvnw.cmd)
+        elif not shutil.which(first):
             return (f"Bite can't find {first!r}, the first word of the test command ({cmd}). "
                     "Install it, or set test_command in .bite.ini to the command that runs your tests.")
+        if (MAVEN.search(cmd) or GRADLE.search(cmd)) and not (shutil.which("java") or os.environ.get("JAVA_HOME")):
+            return (f"Maven and Gradle need Java, and Bite can't find it (java isn't on PATH and JAVA_HOME isn't set), "
+                    "so your tests can't run. Install a JDK (for example from https://adoptium.net), then run Bite again.")
         if words[1:3] == ["-m", "pytest"] and subprocess.run([first, "-c", "import pytest"],
                                                            capture_output=True).returncode != 0:
             return (f"pytest isn't installed for this Python ({shutil.which(first)}), so your tests can't run. "
@@ -505,9 +531,11 @@ def undo_check(root: Path, c: dict, cfg) -> str:
         shutil.rmtree(folder.parent, ignore_errors=True)
 
 
-# The names of failing tests, as pytest, unittest, go test, cargo test, jest and dotnet test print them.
+# The names of failing tests, as pytest, unittest, go test, cargo test, jest, dotnet test, Maven and Gradle print them.
 FAILED_TEST = re.compile(r"^(?:FAILED|ERROR) \S+::(?:\S+::)*([\w\[\]-]+)|^(?:FAIL|ERROR): (\w+) \(|--- FAIL: (\S+)|"
-                         r"^test (\S+) \.\.\. FAILED|✕ (.+?)(?: \(\d+ ?ms\))?$|^\s*Failed (\S+) \[", re.M)
+                         r"^test (\S+) \.\.\. FAILED|✕ (.+?)(?: \(\d+ ?ms\))?$|^\s*Failed (\S+) \[|"
+                         r"^\[ERROR\] (?:[\w$]+\.)*?([\w$]+\.[\w$]+|[\w$]+)(?:\([\w.$]*\))?\s+(?:-- )?Time elapsed:.*<<< (?:FAILURE|ERROR)!|"
+                         r"^(?:[\w$]+\.)*([\w$]+ > .+?) FAILED$", re.M)
 
 
 def caught_by(out: str) -> str:
@@ -561,9 +589,12 @@ Rules:
 - Use the project's own test framework and conventions. Put the test in ONE new file whose name contains
   bite_claim and that the project's test runner picks up (for pytest: test_bite_claim.py), next to the
   project's other tests. Don't edit any other file. For .NET (dotnet test): BiteClaimTests.cs with a test
-  class named BiteClaimTests, inside the folder of an existing test project so that project compiles it.
+  class named BiteClaimTests, inside the folder of an existing test project so that project compiles it. For
+  Java or Kotlin (Maven, Gradle): BiteClaimTest.java or BiteClaimTest.kt with a class named BiteClaimTest, in the
+  test folder (src/test/java or src/test/kotlin) of the module whose code it tests, in that code's package.
 - Run it: `pytest <your file>` runs only your test if pytest is the runner; for .NET,
-  `dotnet test <the test project> --filter "FullyQualifiedName~BiteClaim"`; `bite-test` runs the whole suite. If it fails, read the failure and make sure the TEST is right (right import, right API, right
+  `dotnet test <the test project> --filter "FullyQualifiedName~BiteClaim"`; for Maven, `mvn test -Dtest=BiteClaim*`;
+  for Gradle, `gradle test --tests "*BiteClaim*"` (or the project's ./mvnw, ./gradlew); `bite-test` runs the whole suite. If it fails, read the failure and make sure the TEST is right (right import, right API, right
   expectation from the claim) before you conclude the code is wrong. A failure from your own mistake is not a finding.
 - Finish with one line of JSON and nothing after it:
   {"test_file": "<path relative to the project>", "claim": "<the claim in your words>", "result": "fails" or "holds", "why": "<one sentence>"}"""
@@ -653,6 +684,8 @@ def claim_command(cfg, rel: str) -> str:
     if re.search(r"\bdotnet(\.exe)?\s+test\b", cmd):  # dotnet test takes no file: pick the claim's class by name
         cmd = re.sub(r'\s--filter(\s+|=)("[^"]*"|\S+)', "", cmd)
         return f"{cmd} {DOTNET_FILTER}"
+    if MAVEN.search(cmd) or GRADLE.search(cmd):  # they take a class name, not a file: pick the claim's class by name
+        return jvm_claim_command(cmd, rel, Path(cfg.project))
     if re.search(r"\bgo\s+test\b", cmd):  # go test takes packages, not a file next to ./...: run the file's package
         toks = [t for t in cmd.split() if not (t in (".", "./...") or t.startswith("./") or t.endswith("/..."))]
         return " ".join(toks) + " ./" + (posixpath.dirname(rel) or ".")
@@ -664,6 +697,25 @@ def claim_command(cfg, rel: str) -> str:
             keep += [toks[j + 1] for j in range(i + 1, len(toks) - 1) if toks[j] == opt and toks[j + 1] not in keep]
         return " ".join(keep) + " " + rel
     return f"{cmd} {rel}"
+
+
+def jvm_claim_command(cmd: str, rel: str, folder: Path) -> str:
+    """Maven and Gradle run one test class by name, inside the module or project the file belongs to: in a build of
+    many modules, a filter that matches nothing elsewhere would stop the run."""
+    if MAVEN.search(cmd):
+        cmd = re.sub(r'\s-Dtest=("[^"]*"|\S+)', "", cmd)
+        mod = build_folder(folder, rel, ("pom.xml",))
+        cmd = re.sub(r"\s(?:-pl|--projects)(?:\s+|=)\S+", "", cmd)
+        where = f" -pl {mod} -am" if mod else ""
+        # -am also builds the modules it needs, which don't have the claim's class: they mustn't stop the run.
+        return f"{cmd}{where} -Dtest=BiteClaim* -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false"
+    cmd = re.sub(r'\s--tests(?:\s+|=)("[^"]*"|\S+)', "", cmd)
+    names = ("build.gradle", "build.gradle.kts")
+    mod = build_folder(folder, rel, names)
+    if mod:  # run that project's own test task: ":lib:test", not every project's "test"
+        task = ":" + mod.replace("/", ":") + ":test"
+        cmd = re.sub(r"(?<=\s)(?::?[\w:-]*:)?test(?=\s|$)", task, cmd, count=1)
+    return f'{cmd} --tests "*BiteClaim*"'
 
 
 def run_claim(cfg, folder: Path, test_rel: str, test_src: bytes, cmd: str) -> tuple:
@@ -754,9 +806,12 @@ Rules:
   as it is. One short comment at the top saying what it guards.
 - Put it in ONE new file whose name contains bite_claim and that the project's test runner picks up (for pytest:
   test_bite_claim.py), next to the project's other tests. Don't edit any other file. For .NET (dotnet test):
-  BiteClaimTests.cs with a test class named BiteClaimTests, inside the folder of an existing test project.
+  BiteClaimTests.cs with a test class named BiteClaimTests, inside the folder of an existing test project. For
+  Java or Kotlin (Maven, Gradle): BiteClaimTest.java or BiteClaimTest.kt with a class named BiteClaimTest, in the
+  test folder (src/test/java or src/test/kotlin) of the module whose code it tests, in that code's package.
 - Run it: `pytest <your file>` runs only your test if pytest is the runner; for .NET,
-  `dotnet test <the test project> --filter "FullyQualifiedName~BiteClaim"`; `bite-test` runs the whole suite.
+  `dotnet test <the test project> --filter "FullyQualifiedName~BiteClaim"`; for Maven, `mvn test -Dtest=BiteClaim*`;
+  for Gradle, `gradle test --tests "*BiteClaim*"` (or the project's ./mvnw, ./gradlew); `bite-test` runs the whole suite.
   Make sure it passes here.
 - Finish with one line of JSON and nothing after it:
   {"test_file": "<path relative to the project>", "guards": "<the words that finish 'It checks that ...'>"}"""
@@ -1009,7 +1064,7 @@ CAT = ('<img src="https://raw.githubusercontent.com/connabyss/bite/main/assets/b
 
 # The code fence's language for a written test, so GitHub colours it.
 FENCE_LANG = {".py": "python", ".js": "js", ".mjs": "js", ".cjs": "js", ".ts": "ts", ".tsx": "tsx", ".jsx": "jsx",
-              ".rs": "rust", ".go": "go", ".cs": "csharp"}
+              ".rs": "rust", ".go": "go", ".cs": "csharp", ".java": "java", ".kt": "kotlin"}
 
 
 def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest: str = "", tried: list = ()) -> Path:
@@ -1378,7 +1433,8 @@ def main(argv=None):
         return 1
     if not cfg.programs:  # the worker may run the test runner and the project's language, nothing new
         first = cfg.test_cmd.split()[0]
-        cfg.programs = sorted({first, "python", "python3", "pytest", "node", "npx", "go", "cargo", "dotnet"} - {"npx"})
+        cfg.programs = sorted({first, "python", "python3", "pytest", "node", "npx", "go", "cargo", "dotnet",
+                               "mvn", "mvnw", "mvnw.cmd", "gradle", "gradlew", "gradlew.bat"} - {"npx", "sh"})
     missing = preflight(cfg)
     if missing:
         print(f"Bite: {missing}")
