@@ -371,13 +371,15 @@ def changed_files(root: Path, sha: str) -> tuple[list, dict]:
     its new name: taking the commit out puts the old content back under the new name, so a fix that rode along
     with a move is checked like any other (rather than the tests crashing on the missing new name)."""
     # --raw gives each file's mode: a symbolic link (120000) holds a path, not code, so it isn't a change to take
-    # out (and writing through it on the copy would change the file it points to).
+    # out (and writing through it on the copy would change the file it points to). A submodule (160000) is another
+    # repository: bumping it isn't a code change Bite can take out, even when its folder is named like a file
+    # (vendor/chart.js).
     raw = repo.git(root, "diff-tree", "--no-commit-id", "-r", "-z", "--raw", "-M", sha) or ""
     parts, names, moved, i = raw.split("\0"), [], {}, 0
     while i < len(parts) and parts[i]:
         info = parts[i].split()  # ":old_mode new_mode old_sha new_sha status"
         st = info[-1] if info else ""
-        link = any(m == "120000" for m in (info[0].lstrip(":"), info[1]) if m) if len(info) > 1 else False
+        link = any(m in ("120000", "160000") for m in (info[0].lstrip(":"), info[1]) if m) if len(info) > 1 else False
         if st[:1] in "RC" and i + 2 < len(parts):
             old, new = parts[i + 1], parts[i + 2]
             if not link:
