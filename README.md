@@ -271,7 +271,9 @@ the old code back, Bite says so and names that commit:
 fix's own change would apply again to today's code (and can't be taken back out of it). It works for fixes a test
 noticed too, since a fix and its test can be deleted together. A later commit whose title says it's a revert was
 done on purpose, so that one gets a quiet note instead of the alarm. A fix rewritten into new code doesn't count as
-undone.
+undone, and neither does one a later commit did another way (it took the fix's lines out but wrote its own code for
+the same thing in the same function). A revert or a tidy-up that came undone gets no alarm either. When a branch is
+merged after the undo, Bite names the commit that put the old code back, not the merge.
 
 ## Results for other tools
 
