@@ -3,7 +3,8 @@ Bite for any coding AI: `bite mcp` is a small MCP server with one tool, check_fi
 
 MCP is the plug most coding AIs share (Claude Code, Cursor, Copilot in VS Code, Windsurf, Codex, Gemini CLI).
 Add `bite mcp` as a server in yours and the AI can ask Bite, right after it says "fixed", whether any test
-notices its change. It's the same free check as `bite live`: the change is taken back out of a copy of the
+notices its change. A second tool, ask_bite, answers a question in plain words about a fix already committed
+("is last week's login fix guarded?"). It's the same free check as `bite live`: the change is taken back out of a copy of the
 project and the tests are run. No API key, nothing of yours is touched.
 
     bite mcp     run the server (your coding AI starts it; it talks JSON on stdin and stdout)
@@ -46,6 +47,52 @@ TOOL = {
 }
 
 
+ASK = {
+    "name": "ask_bite",
+    "title": "Bite: is this past fix guarded by a test?",
+    "description": (
+        "Ask in plain words about a fix already committed, like \"is last week's login fix guarded?\". Bite finds "
+        "the matching commit(s) by their messages, changed file names and the time named (today, yesterday, last "
+        "week, the last 10 days...), takes each change back out of a copy and runs the tests. The answer is one "
+        "plain sentence per commit, with its id. Free, needs no key, never touches the user's files. If nothing "
+        "matches, ask again with words from the commit message."),
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "question": {"type": "string", "description": "The question, in plain words."},
+            "folder": TOOL["inputSchema"]["properties"]["folder"],
+            "last": {"type": "integer", "description": "How many recent commits to look through (default 100)."},
+        },
+        "required": ["question"],
+    },
+    "annotations": {"readOnlyHint": True, "openWorldHint": False},
+}
+
+
+def ask_bite(args: dict) -> tuple:
+    """(text for the AI, True if it's an error the AI should know it caused)."""
+    import ask
+    folder = args.get("folder") or os.getcwd()
+    root = repo.repo_root(folder)
+    if root is None:
+        return (f"Bite: {folder} isn't inside a git repository. Pass the project's folder as folder.", True)
+    if not str(args.get("question") or "").strip():
+        return ("Bite: pass question, for example \"is the login fix guarded?\".", True)
+    try:
+        last = max(1, int(args.get("last") or 100))
+    except (TypeError, ValueError):
+        last = 100
+    # Free here: the coding AI asking is already an AI, so it can ask again in better words if nothing matches.
+    r = ask.ask(root, str(args["question"]), last=last, free=True, log=lambda *a: None)
+    text = r["text"]
+    if r["status"] == "cant":
+        text += " This isn't a pass: tell the user Bite couldn't check it, and why."
+    return (text, False)
+
+
+TOOLS = {}
+
+
 def check_fix(args: dict) -> tuple:
     """(text for the AI, True if it's an error the AI should know it caused)."""
     folder = args.get("folder") or os.getcwd()
@@ -64,6 +111,9 @@ def check_fix(args: dict) -> tuple:
     return (text, False)
 
 
+TOOLS.update({TOOL["name"]: check_fix, ASK["name"]: ask_bite})
+
+
 def answer(msg: dict):
     """The reply to one JSON-RPC message, or None for a notification."""
     if not isinstance(msg, dict):
@@ -77,17 +127,19 @@ def answer(msg: dict):
         result = {"protocolVersion": params.get("protocolVersion") or PROTOCOL,
                   "capabilities": {"tools": {}},
                   "serverInfo": {"name": "bite", "version": _installed_version()},
-                  "instructions": "After you fix a bug, call check_fix before you tell the user it's fixed."}
+                  "instructions": "After you fix a bug, call check_fix before you tell the user it's fixed. "
+                                  "To ask whether an earlier fix is guarded, call ask_bite."}
     elif method == "ping":
         result = {}
     elif method == "tools/list":
-        result = {"tools": [TOOL]}
+        result = {"tools": [TOOL, ASK]}
     elif method == "tools/call":
-        if params.get("name") != TOOL["name"]:
+        run = TOOLS.get(params.get("name"))
+        if run is None:
             return {"jsonrpc": "2.0", "id": mid,
                     "error": {"code": -32602, "message": f"Unknown tool: {params.get('name')}"}}
         try:
-            text, err = check_fix(params.get("arguments") or {})
+            text, err = run(params.get("arguments") or {})
         except Exception as e:  # a broken check is reported to the AI, never a dead server
             text, err = f"Bite's check stopped with an error: {type(e).__name__}: {e}", True
         result = {"content": [{"type": "text", "text": text}], "isError": err}

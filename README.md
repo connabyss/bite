@@ -141,6 +141,25 @@ An AI that can run commands but takes no MCP servers can run `bite live` itself:
 exits with 1 when no test noticed the change. Put a line like "After you fix a bug, run `bite live` before you
 say it's fixed" in its rules file (AGENTS.md, .cursorrules, .github/copilot-instructions.md).
 
+## Ask in plain words
+
+```
+bite ask "is last week's login fix guarded?"
+```
+
+Bite finds the commit(s) that match your words (their message and the files they changed, and the time if you
+name one: today, yesterday, this week, last week, the last 10 days) and runs its free check on each. The answer
+is one plain sentence per commit:
+
+```
+Yes. "Fix login letting an empty password in" (3f2a9c1, Oct 27) is guarded: with it taken out, the test
+test_empty_password_is_refused fails.
+```
+
+Matching is free. Only when your words match nothing clearly, and you have an API key, a small AI call picks the
+commit instead (about a cent); `--free` never uses the key. `--last 200` looks further back. Coding AIs get the
+same thing through `bite mcp`, as the tool `ask_bite`.
+
 ## Run it on every pull request
 
 Easiest: [install the bite-check app](https://github.com/apps/bite-check) on the repos you want. Within an hour it
