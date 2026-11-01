@@ -129,14 +129,15 @@ def history(root: Path, last: int) -> list:
 
 def match(question: str, cs: list) -> list:
     """Commits that share words with the question, best first: [(score, commit)]. A word in the commit's title
-    counts twice; the body and the changed files' names once."""
+    counts twice; the body, the changed files' names and the functions it changed once."""
     want = words(question)
     if not want:
         return []
     found = []
     for c in cs:
         title = words(c["subject"])
-        rest = words(re.sub(r"(?im)^[\w-]+-by:.*$", "", c["body"])) | words(" ".join(c.get("code", []) + c.get("tests", [])))
+        rest = words(re.sub(r"(?im)^[\w-]+-by:.*$", "", c["body"])) | words(" ".join(c.get("code", []) + c.get("tests", [])
+                                                                                   + c.get("names", [])))
         score = 2 * len(want & title) + len((want - title) & rest)
         if score:
             score += 1 if c.get("claims") else 0  # a commit that says it fixed something is the likelier answer
@@ -311,6 +312,8 @@ def ask(root: Path, question: str, last: int = 100, most: int = 3, free: bool = 
     for c in cs:
         recent.files_of(root, c, cfg)
     cs = [c for c in cs if c["code"]]
+    for c in cs:  # "is the make_metavar fix guarded?": people name the function more often than the commit says it
+        c["names"] = list(dict.fromkeys(p[1] for p in recent.parts(root, c) if p[1]))
     if covers:
         import fnmatch
         cs = [c for c in cs if any(fnmatch.fnmatch(f, g) for f in c["code"] for g in covers)]
