@@ -604,7 +604,10 @@ def rust_code_same(old: bytes | None, new: bytes | None) -> bool:
     """Only the file's test modules changed: its code (and its doc comments) are the same."""
     if old is None or new is None:
         return False
-    strip = lambda t: "".join(ln for i, ln in enumerate(t) if not any(s <= i <= e for s, e in rust_test_spans(t)))  # noqa: E731
+
+    def strip(t: list) -> str:
+        inside = {i for s, e in rust_test_spans(t) for i in range(s, e + 1)}  # found once per file, not per line
+        return "".join(ln for i, ln in enumerate(t) if i not in inside)
     return strip(old.decode("utf-8", "replace").splitlines(keepends=True)).split() == \
         strip(new.decode("utf-8", "replace").splitlines(keepends=True)).split()
 
