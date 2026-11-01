@@ -371,13 +371,15 @@ def changed_files(root: Path, sha: str) -> tuple[list, dict]:
     its new name: taking the commit out puts the old content back under the new name, so a fix that rode along
     with a move is checked like any other (rather than the tests crashing on the missing new name)."""
     # --raw gives each file's mode: a symbolic link (120000) holds a path, not code, so it isn't a change to take
-    # out (and writing through it on the copy would change the file it points to).
+    # out (and writing through it on the copy would change the file it points to). A submodule (160000) is another
+    # repository: bumping it isn't a code change Bite can take out, even when its folder is named like a file
+    # (vendor/chart.js).
     raw = repo.git(root, "diff-tree", "--no-commit-id", "-r", "-z", "--raw", "-M", sha) or ""
     parts, names, moved, i = raw.split("\0"), [], {}, 0
     while i < len(parts) and parts[i]:
         info = parts[i].split()  # ":old_mode new_mode old_sha new_sha status"
         st = info[-1] if info else ""
-        link = any(m == "120000" for m in (info[0].lstrip(":"), info[1]) if m) if len(info) > 1 else False
+        link = any(m in ("120000", "160000") for m in (info[0].lstrip(":"), info[1]) if m) if len(info) > 1 else False
         if st[:1] in "RC" and i + 2 < len(parts):
             old, new = parts[i + 1], parts[i + 2]
             if not link:
@@ -2226,6 +2228,7 @@ def demo(argv: list) -> int:
 # Every option main() accepts; each one must be in the help text above (the self-test checks).
 FLAGS = {"--free", "--all", "--any", "--serious", "--again", "--roast", "--demo", "--write-tests", "--json", "--quick"}
 VALUED = {"--last": int, "--free-checks": int, "--suspects": int, "--budget": float, "--since": str, "--part-runs": int}
+VALUE_EXAMPLE = {"--budget": "1.00", "--since": "main", "--part-runs": 6}
 
 
 def extras(root: Path, cfg) -> list:
@@ -2315,13 +2318,19 @@ def main(argv=None):
         return 0
     i = 0
     while i < len(argv):  # a typo must not fall through to the paid step
-        if argv[i] in VALUED and i + 1 < len(argv):
+        if argv[i] in VALUED and i + 1 >= len(argv):
+            print(f"Bite: {argv[i]} needs a value after it, like {argv[i]} {VALUE_EXAMPLE.get(argv[i], 10)}.")
+            return 2
+        if argv[i] in VALUED:
             kind = VALUED[argv[i]]
+            need = "a whole number" if kind is int else "a number"
             try:
-                kind(argv[i + 1])
+                below = kind is not str and kind(argv[i + 1]) < 0  # git log -n-5 would read the whole history
             except ValueError:
-                need = "a whole number" if kind is int else "a number"
                 print(f"Bite: {argv[i]} needs {need}, got {argv[i + 1]!r}.")
+                return 2
+            if below:
+                print(f"Bite: {argv[i]} needs {need} of 0 or more, got {argv[i + 1]!r}.")
                 return 2
             i += 2
         elif argv[i] in FLAGS or (argv[i] == "comeback" and i and argv[i - 1] == "--demo"):

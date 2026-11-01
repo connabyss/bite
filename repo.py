@@ -41,6 +41,9 @@ def git(root, *args, raw=False):
 
 
 def repo_root(start) -> Path | None:
+    """The top folder of the git repository start is in; None when it isn't in one, or isn't a folder at all."""
+    if not isinstance(start, (str, os.PathLike)) or not Path(start).is_dir():
+        return None
     top = git(start, "rev-parse", "--show-toplevel")
     return Path(top).resolve() if top else None
 
