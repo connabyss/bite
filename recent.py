@@ -351,20 +351,26 @@ def changed_files(root: Path, sha: str) -> tuple[list, dict]:
     """The files a commit changed, and the ones it moved ({new name: old name}). A moved file is listed once, by
     its new name: taking the commit out puts the old content back under the new name, so a fix that rode along
     with a move is checked like any other (rather than the tests crashing on the missing new name)."""
-    raw = repo.git(root, "diff-tree", "--no-commit-id", "-r", "-z", "--name-status", "-M", sha) or ""
+    # --raw gives each file's mode: a symbolic link (120000) holds a path, not code, so it isn't a change to take
+    # out (and writing through it on the copy would change the file it points to).
+    raw = repo.git(root, "diff-tree", "--no-commit-id", "-r", "-z", "--raw", "-M", sha) or ""
     parts, names, moved, i = raw.split("\0"), [], {}, 0
     while i < len(parts) and parts[i]:
-        st = parts[i]
+        info = parts[i].split()  # ":old_mode new_mode old_sha new_sha status"
+        st = info[-1] if info else ""
+        link = any(m == "120000" for m in (info[0].lstrip(":"), info[1]) if m) if len(info) > 1 else False
         if st[:1] in "RC" and i + 2 < len(parts):
             old, new = parts[i + 1], parts[i + 2]
-            names.append(new)
-            if st[0] == "R" and Path(old).suffix.lower() == Path(new).suffix.lower():
-                moved[new] = old
-            elif st[0] == "R":
-                names.append(old)  # moved into another language: both sides are their own change
+            if not link:
+                names.append(new)
+                if st[0] == "R" and Path(old).suffix.lower() == Path(new).suffix.lower():
+                    moved[new] = old
+                elif st[0] == "R":
+                    names.append(old)  # moved into another language: both sides are their own change
             i += 3
         else:
-            names.append(parts[i + 1] if i + 1 < len(parts) else "")
+            if not link:
+                names.append(parts[i + 1] if i + 1 < len(parts) else "")
             i += 2
     return [n for n in names if n], moved
 
@@ -742,6 +748,15 @@ def tests_pass_at(root: Path, sha: str, cfg) -> tuple[bool, str]:
 
 
 def undo_check(root: Path, c: dict, cfg) -> str:
+    """check_undo, but a file Bite can't read or write in one commit's copy (a link, a locked file, a full disk)
+    only stops the check of that commit, not the whole run: it shows as couldn't check, with the reason."""
+    try:
+        return check_undo(root, c, cfg)
+    except OSError as e:
+        return f"Bite hit a file error ({e.strerror or e})"[:160]
+
+
+def check_undo(root: Path, c: dict, cfg) -> str:
     """'unguarded' when the tests still pass with this commit's code change taken back out; 'TEST GUARDS NOTHING'
     when that includes the tests the commit itself added or changed (they're kept: only the code is undone);
     "undone since" or "reverted since" when a later commit put the old code back (see came_back)."""
