@@ -1482,6 +1482,27 @@ def write_badge(root: Path, sc: dict | None) -> Path | None:
     return p
 
 
+def most_wanted(cs: list, newest: str = "") -> tuple[dict, str] | None:
+    """The one test to write first, and why: a fix a later commit undid, then a claim about data, money, logins,
+    security, crashes or leaks, then any fix claim, then the smallest change (the easiest test). None when every
+    change Bite checked was noticed."""
+    bad = [c for c in cs if c.get("undo") and say(c, newest)[0] in ("gap", "odd", "back")]
+    if not bad:
+        return None
+    pick = min(bad, key=lambda c: (say(c, newest)[0] != "back", not c.get("serious"), not c.get("claims"),
+                                   c.get("lines") or 10 ** 6))
+    if say(pick, newest)[0] == "back":
+        why = "a later commit put the old code back, so this fix is gone from today's code"
+    elif pick.get("serious"):
+        m = MATTERS.search(pick["subject"] + " " + re.sub(r"(?im)^[\w-]+-by:.*$", "", pick.get("body", ""))[:400])
+        why = f"it says it fixes something about {m.group(0).lower() if m else 'what matters most'}, and no test checks that"
+    elif pick.get("claims"):
+        why = "it says it fixes something, and no test checks that"
+    else:
+        why = "it's the smallest change no test noticed, so its test is the quickest to write"
+    return pick, why
+
+
 def flat(text: str) -> str:
     """say()'s sentence without its Markdown, for the terminal and the report page."""
     return re.sub(r"\[([^]]+)\]\([^)]+\)", r"\1", text).replace("**", "").replace("`", "")
@@ -1542,6 +1563,12 @@ def write_html(root: Path, cs: list, tried: list, seconds: float) -> Path:
                    f"A test noticed {n} of the {total} changes Bite could check. The other {total - n} could break "
                    "quietly.")
                 + f'<div class="why">README badge: <code>{e(score_badge(n, total))}</code></div></div></div>')
+    bad = [c for c in checked if say(c)[0] in ("gap", "odd", "back")]
+    mw, wanted = most_wanted(cs) if len(bad) > 1 else None, ""
+    if mw:
+        w, why = mw
+        wanted = (f'<div class="wanted"><div class="tag">Most wanted</div><b><code>{sha(w["sha"])}</code> '
+                  f'{e(w["subject"])}</b><div>If you write one test today, make it this one: {e(why)}.</div></div>')
     page = f"""<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bite report: {e(root.name)}</title>
 <style>
@@ -1560,12 +1587,16 @@ td:first-child{{white-space:nowrap}} .dot{{display:inline-block;width:9px;height
 .proof b{{color:var(--held)}} .score{{display:flex;gap:18px;align-items:center;margin:24px 0 0}}
 .score .track{{fill:none;stroke:var(--line);stroke-width:10}} .score .arc{{fill:none;stroke:var(--gap);stroke-width:10;stroke-linecap:round}} .score.held .arc{{stroke:var(--held)}}
 .score .big{{fill:var(--fg);font:700 22px system-ui,sans-serif;text-anchor:middle}} .score .small{{fill:var(--mute);font:12px system-ui,sans-serif;text-anchor:middle}}
-.score code{{word-break:break-all}} footer{{margin-top:32px;color:var(--mute);font-size:13px}}
+.score code{{word-break:break-all}}
+.wanted{{margin:20px 0 0;border:2px dashed var(--gap);border-radius:10px;padding:12px 16px}}
+.wanted .tag{{display:inline-block;font:700 11px system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;
+color:var(--bg);background:var(--gap);border-radius:4px;padding:2px 7px;margin-bottom:6px}} .wanted b{{display:block}} footer{{margin-top:32px;color:var(--mute);font-size:13px}}
 </style>
 <main>
 <h1><img src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-avatar.png" width="32" height="32" alt="Bite" style="vertical-align: middle; margin-right: 8px;"> Bite report: {e(root.name)}</h1>
 <div class="sub">{datetime.now():%Y-%m-%d %H:%M} &middot; did the recent "fixed" commits hold? &middot; {seconds:.0f}s, ${SPENT[0]:.2f}</div>
 {ring}
+{wanted}
 {f'<p class="proof"><b>Bite-proof. Nice work.</b> Every change Bite checked had a test that noticed it. Badge for your README:<br><code>{e(BADGE)}</code></p>' if bite_proof(kinds, tried) else ""}
 <div class="tiles">{"".join(f'<div class="tile {k}"><b>{n}</b>{e(t)}</div>' for n, t, k in tiles)}</div>
 {f'<h2>Claims tested</h2><table>{claims}</table>' if tried else ""}
@@ -1764,6 +1795,10 @@ def write_free(root: Path, cfg, flagged: list) -> Path:
     lines = ["# Bite: changes no test noticed", "",
              "Bite took each change below out, kept the tests, and ran them. Every test still passed, so nothing would "
              "warn you if the change broke. This check is free; no AI was used.", ""]
+    mw = most_wanted(flagged) if len(flagged) > 1 else None
+    if mw:
+        lines += [f"**Most wanted:** if you write one test today, make it the one for {mw[0]['sha'][:8]} "
+                  f"(section {flagged.index(mw[0]) + 1}): {mw[1]}.", ""]
     for i, c in enumerate(flagged, 1):
         sha = c["sha"]
         steps = undo_steps(root, sha, c["code"], c.get("moved"))
@@ -2191,6 +2226,10 @@ def main(argv=None):
           + f"{len(checked) - len(held) - len(flagged) - len(back)} couldn't be checked or skipped"
           + (f"; {n_out} outside the tests' reach" if n_out else "")
           + (f"; {len(other)} in code your tests can't run" if other else "") + ".")
+    mw = most_wanted(checked) if len(back + flagged) > 1 else None
+    if mw:
+        print(f"\nMost wanted: {mw[0]['sha'][:8]} \"{short(mw[0]['subject'])}\": if you write one test today, make it "
+              f"this one ({mw[1]}).")
     n, total = score([say(c)[0] for c in checked])
     if total:
         print(f"Bite score: {n}/{total} (a test noticed {n} of the {total} changes Bite could check)."
