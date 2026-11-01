@@ -681,6 +681,30 @@ def came_back(root: Path, c: dict) -> str:
     return "reverted since" if re.search(r"(?i)\brevert", c["undone_by"]["subject"]) else "undone since"
 
 
+def fail_why(run: dict) -> str:
+    """What broke in a failed test run, for the report and the comment: the failing test by name with its error
+    when the runner gives them (see caught_by), else the last error line, else how the run ended."""
+    out = run["out"]
+    msg = re.search(r"^FAILED \S+ - (.+)$", out, re.M)  # pytest's summary line carries the error
+    errs = [ln.strip(" E>") for ln in out.splitlines() if re.search(r"\b\w+(?:Error|Exception)\b:|No module named ", ln)]
+    err = msg.group(1).strip() if msg else errs[-1] if errs else ""
+    who = caught_by(out).replace("`", "")
+    return ((f"{who} failed" + (f": {err}" if err else "")) if who else err or run["why"])[:160]
+
+
+def tests_pass_at(root: Path, sha: str, cfg) -> tuple[bool, str]:
+    """Whether the tests pass on a copy of the project at sha, and what broke when they don't."""
+    folder = export(root, sha, cfg)
+    fcfg = at(cfg, folder)
+    if getattr(cfg, "free_cmd", ""):
+        fcfg.test_cmd, fcfg.box_test_cmd = cfg.free_cmd, ""
+    try:
+        run = bite.run_tests(fcfg, folder)
+        return run["ok"], "" if run["ok"] else fail_why(run)
+    finally:
+        shutil.rmtree(folder.parent, ignore_errors=True)
+
+
 def undo_check(root: Path, c: dict, cfg) -> str:
     """'unguarded' when the tests still pass with this commit's code change taken back out; 'TEST GUARDS NOTHING'
     when that includes the tests the commit itself added or changed (they're kept: only the code is undone);
@@ -695,8 +719,7 @@ def undo_check(root: Path, c: dict, cfg) -> str:
     try:
         now = bite.run_tests(fcfg, folder)
         if not now["ok"]:
-            errs = [ln.strip(" E>") for ln in now["out"].splitlines() if re.search(r"\b\w+(?:Error|Exception)\b:|No module named ", ln)]
-            c["why"] = (errs[-1] if errs else now["why"])[:160]
+            c["why"] = fail_why(now)
             return "tests fail at this commit"
         if ran_nothing(bite.tests_cmd(fcfg), now["out"]):
             return "no tests ran at this commit"
@@ -1352,11 +1375,15 @@ def say(c: dict, newest: str = "") -> tuple[str, str, str]:
                 ", but they didn't notice it was gone either, so they check something else. ")
                 + "**Next:** make one fail without the change.")
     if u == "tests fail at this commit":
+        if c.get("head") and c.get("head_ok"):
+            return ("skip", "➖ tests failed here, fixed later", "➖ Your tests failed at this commit and pass on the "
+                    f"newest one (`{c['head'][:8]}`), so Bite skipped it.")
         if newest and c["sha"] != newest:
             return ("skip", "➖ tests failed here, skipped", "➖ Your tests failed at this commit, so Bite skipped it "
                     "(a later commit may have fixed them).")
-        return ("fail", "❌ tests already fail", "❌ Your tests already fail here, so Bite can't ask its question. "
-                f"**Next:** fix them first. If they pass on your own computer, [tell Bite how to run them]({SETUP_LINK}).")
+        return ("fail", "❌ tests already fail", "❌ Your tests fail at this commit before Bite takes anything out, so "
+                "Bite can't ask its question. **Next:** fix them first. If they pass on your own computer, "
+                f"[tell Bite how to run them]({SETUP_LINK}).")
     if u == "no tests ran at this commit":
         return ("none", "⚠️ no tests found", "⚠️ Bite couldn't find any tests to run. **Next:** add one, or "
                 f"[point Bite at your tests]({SETUP_LINK}).")
@@ -1474,17 +1501,27 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
     sha = lambda c: f"[`{c['sha'][:8]}`]({link}{c['sha']})" if link else f"`{c['sha'][:8]}`"  # noqa: E731
     why = lambda c: f" Why: {html.escape(c['why'], quote=False).replace('`', chr(39))}." if c.get("why") else ""  # noqa: E731
     # The verdict first; the commit's own title after it, quoted and small, so it doesn't read as Bite talking.
-    line = lambda c, k, w: (f"- {w}" + (why(c) if k == "fail" or "tests failed here" in w else "")  # noqa: E731
+    line = lambda c, k, w: (f"- {w}" + (why(c) if "tests failed here" in w else "")  # a fail's why is in the heading  # noqa: E731
                             + f"<br><sub>Commit {sha(c)}: “{html.escape(c['subject'], quote=False)}”</sub>")
     lines = ["<!-- bite-check -->"]
     if error:
         lines += ["### ❌ Bite couldn't start", "", html.escape(error, quote=False), "",
                   "**Next:** fix that and push again. Bite checks again on every push."]
     elif "fail" in kinds:
-        lines += ["### ❌ Bite: your tests already fail", "",
-                  "Bite can't ask its question while your tests fail on the newest commit.", "",
-                  "**Next:** fix them first. Bite checks again on your next push. If they pass on your own computer, "
-                  f"Bite may be running them the wrong way: [tell Bite how to run them]({SETUP_LINK})."]
+        f = checked[kinds.index("fail")]
+        later = f.get("head") and f["head"] != f["sha"]
+        lines += ["### ❌ Bite: your tests fail, so it couldn't check this pull request", "",
+                  "Your tests fail before Bite takes anything out. Bite's question is \"if a change disappeared, "
+                  "would a test notice?\", and it can't ask that while they already fail.", "",
+                  f"- **Where:** commit {sha(f)}, "
+                  + ("the newest commit that changed code. The commits after it changed no code, and the tests fail "
+                     f"on the newest one too ({sha({'sha': f['head']})})." if later else
+                     "the newest commit in this pull request.")]
+        if f.get("why") or f.get("head_why"):
+            lines += ["- **What failed:** `" + html.escape(f.get("head_why") or f["why"], quote=False).replace("`", "'") + "`"]
+        lines += ["- **About your changes:** nothing yet. Bite hasn't checked them, so this isn't a verdict on them.", "",
+                  "**Next:** run your tests, fix what fails, and push. Bite checks again on every push. If they pass "
+                  f"on your own computer, Bite may be running them the wrong way: [tell Bite how to run them]({SETUP_LINK})."]
     elif "back" in kinds:
         back = kinds.count("back")
         lines += [f"### 🔁 Bite: {'a fix' if back == 1 else f'{back} fixes'} came undone", "",
@@ -1518,7 +1555,8 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
                   none or "No commit in this pull request changed code: only docs, settings or tests."]
     if checked:
         lines += [""] + [line(c, k, re.sub(r"\*\*Next:\*\* .*$", "**Next:** paste in the test Bite wrote (🧪 below).", w)
-                              if c in wrote else w) for c, (k, _, w) in zip(checked, said)]
+                              if c in wrote else re.sub(r" \*\*Next:\*\* .*$", "", w) if k == "fail" else w)
+                         for c, (k, _, w) in zip(checked, said)]  # a fail's next step is in the heading
     for c in wrote:  # --write-tests: the missing test, folded, ready to paste in
         g = c["guard"]
         fence = "~~~~"  # never closed early by a ``` inside the test
@@ -1906,6 +1944,7 @@ def main(argv=None):
         return 1
     t0 = time.time()
     cs = commits(root, opt("--last", 40), since)  # --all is still accepted: every commit is the default now
+    top = cs[0]["sha"] if cs else ""  # the newest commit of all, even one that changed no code
     for c in cs:
         files_of(root, c, cfg)
     other = [c for c in cs if c["other_lang"] and not c["code"]]
@@ -1970,6 +2009,12 @@ def main(argv=None):
         if c.get("why"):  # say what broke, so it's clear whether it's the project or the copy
             print(f"           why: {c['why']}", flush=True)
         save_log(root, kept, cs)
+    last = next((c for c in free if c["sha"] == newest and c["undo"] == "tests fail at this commit"), None)
+    if last and top and top != newest:  # later commits changed no code, but one may have fixed the tests
+        last["head"] = top
+        last["head_ok"], last["head_why"] = tests_pass_at(root, top, cfg)
+        print(f"  the tests {'pass' if last['head_ok'] else 'fail too'} on the newest commit, {top[:8]}, which changed no code",
+              flush=True)
     unsplit = [c for c in free if c.get("parts_skipped")]
     if unsplit:
         print(f"  {len(unsplit)} noticed commit(s) weren't checked piece by piece: that check used its "
