@@ -313,7 +313,7 @@ def ask(root: Path, question: str, last: int = 100, most: int = 3, free: bool = 
         recent.files_of(root, c, cfg)
     cs = [c for c in cs if c["code"]]
     for c in cs:  # "is the make_metavar fix guarded?": people name the function more often than the commit says it
-        c["names"] = list(dict.fromkeys(p[1] for p in recent.parts(root, c) if p[1]))
+        c["names"] = recent.changed_names(root, c)
     if covers:
         import fnmatch
         cs = [c for c in cs if any(fnmatch.fnmatch(f, g) for f in c["code"] for g in covers)]

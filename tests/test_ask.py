@@ -10,6 +10,7 @@ from pathlib import Path
 KIT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KIT))
 import ask  # noqa: E402
+import recent  # noqa: E402
 import bite_mcp  # noqa: E402
 
 PY = sys.executable
@@ -145,7 +146,7 @@ def test_coding_ais_can_ask_through_bite_mcp(tmp_path):
     assert r["isError"] is False and r["content"][0]["text"].startswith("Yes, it's guarded.")
 
 
-def test_naming_the_function_the_fix_changed_finds_it(tmp_path):
+def test_naming_the_function_the_fix_changed_finds_it(tmp_path, monkeypatch):
     # People ask about the function more often than the commit message names it. On 10 scoreboard projects, a
     # question naming the changed function found the right commit first 56% of the time, up from 39%.
     root = make(tmp_path)
@@ -153,5 +154,7 @@ def test_naming_the_function_the_fix_changed_finds_it(tmp_path):
     commit(root, "start coupons", "2026-10-31T13:00:00")
     (root / "cart.py").write_text(CART_FIX + "\n\ndef apply_coupon(total, code):\n    return max(0, total - 5)\n")
     commit(root, "Fix totals going negative", "2026-10-31T14:00:00")
+    # Only the names: splitting every commit into testable pieces took minutes on a big generated file.
+    monkeypatch.setattr(recent, "parts", lambda *a, **k: (_ for _ in ()).throw(AssertionError("parts called")))
     r = ask.ask(root, "is the apply_coupon fix guarded?", now=NOW, log=lambda s: None, free=True)
     assert [c["subject"] for c in r["checked"]][:1] == ["Fix totals going negative"], r["text"]

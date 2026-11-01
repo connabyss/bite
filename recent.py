@@ -1022,6 +1022,24 @@ def owner(lines: list, at_line: int) -> str:
     return ""
 
 
+def changed_names(root: Path, c: dict) -> list:
+    """The functions and classes the commit's code change touched, by name, in order: parts without the work of
+    building each piece (bite ask only needs the names, for every commit it reads)."""
+    before = c.get("before") or f"{c['sha']}^"
+    out = []
+    for rel in c["code"]:
+        old = repo.git(root, "cat-file", "blob", f"{before}:{c.get('moved', {}).get(rel, rel)}", raw=True)
+        new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True)
+        if old is None or new is None:
+            continue
+        a = old.decode("utf-8", "replace").splitlines(keepends=True)
+        b = new.decode("utf-8", "replace").splitlines(keepends=True)
+        for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+            if op != "equal":
+                out.append(owner(b, j1) if j2 > j1 else owner(a, i1))
+    return [n for n in dict.fromkeys(out) if n]
+
+
 def parts(root: Path, c: dict, most: int = 0) -> list:
     """The commit's code change in pieces: one per function or class it touched in each file (a file it created is
     one piece; a file it deleted is none). Each piece is (file, name, the file with only that piece taken out, or
