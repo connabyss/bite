@@ -1902,6 +1902,28 @@ FENCE_LANG = {".py": "python", ".js": "js", ".mjs": "js", ".cjs": "js", ".ts": "
               ".rs": "rust", ".go": "go", ".cs": "csharp", ".java": "java", ".kt": "kotlin"}
 
 
+MENTION = re.compile(r"(?<![\w@/.])@(?=[A-Za-z0-9])")
+
+
+def no_pings(lines: list) -> list:
+    """A commit title like "thanks @alice" or "Bump @types/node" must not notify anyone when Bite's comment quotes
+    it: an invisible word joiner after the @ keeps GitHub from reading it as a mention. Code (fenced blocks and
+    `inline` spans) is left as it is, so a test Bite wrote still pastes in unchanged."""
+    out, fence = [], ""
+    for ln in lines:
+        st = ln.strip()
+        if fence:
+            if st.startswith(fence):
+                fence = ""
+        elif st.startswith(("~~~~", "```")):
+            fence = st[:4] if st.startswith("~~~~") else "```"
+        else:
+            parts = ln.split("`")
+            ln = "`".join(MENTION.sub("@\u2060", t) if i % 2 == 0 else t for i, t in enumerate(parts))
+        out.append(ln)
+    return out
+
+
 def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest: str = "", tried: list = ()) -> Path:
     """The free check in plain words for a pull request comment (the GitHub Action posts it): a verdict, what to
     do next, then one line per commit. none says why nothing was checked, error why Bite couldn't start, and newest
@@ -1998,7 +2020,7 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
               + "[What is Bite?](https://github.com/connabyss/bite)", "", "</details>"]
     lines[1] = lines[1].replace("### ", f"### {CAT} ", 1)
     p = proof_dir(root) / "COMMENT.md"
-    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    p.write_text("\n".join(no_pings(lines)) + "\n", encoding="utf-8")
     write_results(root, cs, none, error, newest, tried)
     return p
 
