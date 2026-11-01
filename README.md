@@ -9,7 +9,7 @@
 
 **Bite checks whether an AI coding agent's "fixed" is actually true.**
 
-<img alt="bite --demo: one fix is noticed by a test, the other has no test at all" src="assets/bite-demo.svg" width="760">
+<img alt="bite --demo: one fix is noticed by a test, the other has no test at all" src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-demo.svg" width="760">
 
 It takes each recent fix back out of your code and runs your tests. If they still pass, nothing guards that fix,
 and Bite tells you which one. That free check needs no key and works with pytest, npm test, cargo test, go test,
@@ -298,7 +298,7 @@ Checked Oct 30-31, 2026 with `bite --free`. Every bug fix Bite could check had a
 by hand. Apart from the gaps above, they were things a test can't catch, like type hints, speed-ups, Windows-only
 code or rewrites that work the same.
 
-**[The full scoreboard](SCOREBOARD.md)** has 20 projects in 5 languages, with a link to every gap.
+**[The full scoreboard](https://github.com/connabyss/bite/blob/main/SCOREBOARD.md)** has 20 projects in 5 languages, with a link to every gap.
 
 ## The catch that shows what it's for
 
