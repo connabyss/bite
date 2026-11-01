@@ -46,7 +46,9 @@ def test_paths_with_spaces_are_quoted_in_the_steps(tmp_path):
     with open(root / "tests" / "test_shop.py", "a", encoding="utf-8") as f:
         f.write("\n\ndef test_rounds():\n    assert m.total([0.1, 0.2]) == 0.3\n")
     commit(root, "Fix total rounding and label spaces")
-    subprocess.run([PY, str(KIT / "recent.py"), "--free"], cwd=root, capture_output=True, timeout=300)
+    r = subprocess.run([PY, str(KIT / "recent.py"), "--free"], cwd=root, capture_output=True, timeout=300)
+    out = (r.stdout + r.stderr).decode("utf-8", "replace")
+    assert (root / "bite_proof" / "FREE_REPORT.md").is_file(), out[-3000:]
     report = (root / "bite_proof" / "FREE_REPORT.md").read_text(encoding="utf-8")
     cp = next(s for s in steps(report) if s.startswith("cp "))
     words = shlex.split(cp)
