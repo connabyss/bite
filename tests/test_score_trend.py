@@ -47,3 +47,14 @@ def test_report_shows_the_trend():
           {"sha": "b" * 40, "subject": "Fix y", "undo": "unguarded"}]
     page = recent.write_html(root, cs, [], 1.0, {"before": (0, 2), "streak": 0}).read_text(encoding="utf-8")
     assert '<span class="trend up">↑ up from 0/2 last run</span>' in page
+
+
+def test_share_card():
+    import xml.dom.minidom
+    root = Path(tempfile.mkdtemp(prefix="my&shop"))
+    card = recent.write_card(root, 3, 4, "Up from 1/4 last run")
+    text = card.read_text(encoding="utf-8")
+    xml.dom.minidom.parseString(text)  # a well-formed picture, even with & in the folder's name
+    assert ">3/4</text>" in text and "Up from 1/4 last run" in text and 'width="1200" height="630"' in text
+    assert 'font-size="130"' in recent.write_card(root, 100, 120).read_text(encoding="utf-8")  # long scores fit
+    assert recent.write_card(root, 0, 0) is None
