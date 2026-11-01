@@ -51,7 +51,7 @@ def make(tmp_path):
 def test_a_guarded_fix_gets_yes_and_its_commit(tmp_path):
     r = ask.ask(make(tmp_path), "is last week's login bug guarded?", now=NOW, log=lambda s: None)
     assert r["status"] == "held", r["text"]
-    assert r["text"].startswith("Yes. \"Fix login letting an empty password in\"")
+    assert r["text"].startswith("Yes, it's guarded.\n\n✅ YES, A TEST NOTICED\n   Fix login letting an empty password in\n")
     assert "test_empty_password_is_refused fails" in r["text"] and "Oct 27" in r["text"]
     assert len(r["checked"]) == 1  # the discount fix shares no word with the question: not checked
 
@@ -59,8 +59,36 @@ def test_a_guarded_fix_gets_yes_and_its_commit(tmp_path):
 def test_a_fix_no_test_notices_gets_no_and_a_next_step(tmp_path):
     r = ask.ask(make(tmp_path), "did the discount fix get a test?", now=NOW, log=lambda s: None)
     assert r["status"] == "gap", r["text"]
-    assert r["text"].startswith("No. \"Fix discount going below zero\"") and "every test still passes" in r["text"]
+    assert r["text"].startswith("No, nothing guards it.\n\n⚠️ NO TEST NOTICED\n   Fix discount going below zero\n")
+    assert "every test still passes" in r["text"]
     assert "Next: add a test that fails without that change" in r["text"]
+
+
+def test_the_answer_is_short_lines_that_fit_the_window(tmp_path):
+    root = make(tmp_path)
+    r = ask.ask(root, "are the login and discount fixes guarded?", now=NOW, log=lambda s: None, width=44)
+    lines = r["text"].splitlines()
+    said = " ".join(line.strip() for line in lines)
+    assert said.startswith("Partly: a test noticed 1 of the 2 matching fixes."), r["text"]
+    assert "✅ YES, A TEST NOTICED" in lines and "⚠️ NO TEST NOTICED" in lines
+    assert all(len(line) <= 44 for line in lines), r["text"]
+    assert "test_empty_password_is_refused fails" in said  # wrapped at spaces only: no word cut in two
+    plain = ask.ask(root, "did the discount fix get a test?", now=NOW, log=lambda s: None, emoji=False)["text"]
+    assert "\nNO TEST NOTICED\n" in plain and "⚠" not in plain and "✅" not in plain
+
+
+def test_piped_output_gets_no_emoji(monkeypatch):
+    class Piped:
+        encoding = "utf-8"
+
+        def isatty(self):
+            return False
+    monkeypatch.setattr(ask.sys, "stdout", Piped())
+    assert ask.look()[1] is False
+    Piped.encoding, Piped.isatty = "cp437", lambda self: True  # an old Windows console can't write them
+    assert ask.look()[1] is False
+    Piped.encoding = "utf-8"
+    assert ask.look()[1] is True and 40 <= ask.look()[0] <= 88
 
 
 def test_the_time_in_the_question_narrows_the_commits(tmp_path):
@@ -114,4 +142,4 @@ def test_coding_ais_can_ask_through_bite_mcp(tmp_path):
     r = bite_mcp.answer({"jsonrpc": "2.0", "id": 9, "method": "tools/call",
                          "params": {"name": "ask_bite", "arguments": {"question": "is the login fix guarded?",
                                                                        "folder": str(root)}}})["result"]
-    assert r["isError"] is False and r["content"][0]["text"].startswith("Yes.")
+    assert r["isError"] is False and r["content"][0]["text"].startswith("Yes, it's guarded.")

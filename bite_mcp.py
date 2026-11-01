@@ -53,8 +53,8 @@ ASK = {
     "description": (
         "Ask in plain words about a fix already committed, like \"is last week's login fix guarded?\". Bite finds "
         "the matching commit(s) by their messages, changed file names and the time named (today, yesterday, last "
-        "week, the last 10 days...), takes each change back out of a copy and runs the tests. The answer is one "
-        "plain sentence per commit, with its id. Free, needs no key, never touches the user's files. If nothing "
+        "week, the last 10 days...), takes each change back out of a copy and runs the tests. The answer opens in a "
+        "few words (Yes, No or Partly), then a short block per commit, with its id. Free, needs no key, never touches the user's files. If nothing "
         "matches, ask again with words from the commit message."),
     "inputSchema": {
         "type": "object",
