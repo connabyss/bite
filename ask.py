@@ -320,7 +320,7 @@ def ask(root: Path, question: str, last: int = 100, most: int = 3, free: bool = 
     span = f" {said_when}" if said_when else f" in the last {last} commits"
     if not cs:
         return {"status": "none", "checked": [], "text": f"Bite found no commit that changed code your tests run{span}."
-                + (" Try a longer time." if said_when else " Try a larger --last.")}
+                + (f" {repo.SHALLOW}" if repo.shallow(root) else " Try a longer time." if said_when else " Try a larger --last.")}
     found = match(question, cs)
     picked = [c for _, c in found[:most]] if clear(found, question) else []
     how = "words"
