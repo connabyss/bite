@@ -947,16 +947,18 @@ def owner(lines: list, at_line: int) -> str:
 
 
 def parts(root: Path, c: dict) -> list:
-    """The commit's code change in pieces: one per function or class it touched in each file (a file it created or
-    deleted is one piece). Each piece is (file, name, the file with only that piece taken out, or None for a file
-    the commit created)."""
+    """The commit's code change in pieces: one per function or class it touched in each file (a file it created is
+    one piece; a file it deleted is none). Each piece is (file, name, the file with only that piece taken out, or
+    None for a file the commit created)."""
     before = c.get("before") or f"{c['sha']}^"
     out = []
     for rel in c["code"]:
         old = repo.git(root, "cat-file", "blob", f"{before}:{c.get('moved', {}).get(rel, rel)}", raw=True)
         new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True)
-        if old is None or new is None:
-            out.append((rel, "", old))
+        if new is None:
+            continue  # a file the commit deleted: putting it back alone can't fail a test that doesn't use it
+        if old is None:
+            out.append((rel, "", None))
             continue
         a = old.decode("utf-8", "replace").splitlines(keepends=True)
         b = new.decode("utf-8", "replace").splitlines(keepends=True)
