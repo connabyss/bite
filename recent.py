@@ -13,6 +13,8 @@ Bite: did your coding agent's recent "done" commits really do what they said?
     bite --again              test claims again even if an earlier run already tested them
     bite --all                same as plain bite (kept so older commands still work)
     bite --roast              the same results, worded a little more gently
+    bite --quick              faster: skip the piece-by-piece check, the flaky-test rerun and the deleted-test check
+                              (--part-runs N: test runs the piece check may use in one run, 6 by default)
     bite --since main         only commits that main doesn't have (the pull request check uses this)
     bite --json               print the results as JSON for other programs (the rest goes to stderr); they're
                               also saved in bite_proof/results.json on every run
@@ -714,7 +716,7 @@ def undo_check(root: Path, c: dict, cfg) -> str:
         if undone["ok"]:
             return flag()
         crashed = bite.load_failure(undone["out"])
-        if not crashed:
+        if not crashed and not QUICK[0]:
             # Once more: a test that fails now and then (flaky) can fail by luck. Only a test that fails every
             # time the change is out counts as noticing it.
             again = bite.run_tests(fcfg, folder)
@@ -736,7 +738,7 @@ def undo_check(root: Path, c: dict, cfg) -> str:
             set_part(c, still)
             c["part"] = part_text(still)
             return "unguarded: part"
-        gone = tests_gone_since(root, c, cfg)
+        gone = [] if QUICK[0] else tests_gone_since(root, c, cfg)
         if gone:  # a test noticed it then, but test files were deleted since: does one still notice it today?
             caught = c["caught"]
             if today_notices(root, c, cfg) is False:
@@ -749,6 +751,10 @@ def undo_check(root: Path, c: dict, cfg) -> str:
 
 
 MAX_PARTS = 6  # a commit in more pieces than this isn't split: each piece costs a test run
+# Piece runs left for this whole run (--part-runs; the commits Bite checks first get them), and --quick: no piece
+# check, no flaky rerun, no deleted-test check, so a commit costs two test runs as it used to.
+PART_RUNS = [6]
+QUICK = [False]
 DEF_LINE = re.compile(r"^(\s*)(?:@\w+\s+)?(?:(?:export|default|async|pub(?:\([^)]*\))?|public|private|protected|internal|static|"
                       r"final|abstract|override|open|suspend|inline|virtual|unsafe|const|extern)\s+)*"
                       r"(?:def|class|function|func|fn|struct|interface|enum|record|impl|trait|object|fun|module)\s+"
@@ -839,9 +845,14 @@ def unnoticed_part(root: Path, c: dict, folder: Path, fcfg) -> list:
     for the rest. Returns the pieces no test noticed (as parts gives them), or [] when every piece was noticed, the
     commit is one piece, or it has too many to try. When no piece alone is noticed, the pieces only count together,
     so that says nothing either."""
+    if QUICK[0]:
+        return []
     ps = parts(root, c)
-    if not 2 <= len(ps) <= MAX_PARTS:
-        return ""
+    if not 2 <= len(ps) <= min(MAX_PARTS, PART_RUNS[0]):
+        if len(ps) > PART_RUNS[0] and 2 <= len(ps) <= MAX_PARTS:
+            c["parts_skipped"] = len(ps)
+        return []
+    PART_RUNS[0] -= len(ps)
     news = {rel: repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True) for rel in c["code"]}
     missed = []
     for p in ps:
@@ -1749,8 +1760,8 @@ def demo(argv: list) -> int:
 
 
 # Every option main() accepts; each one must be in the help text above (the self-test checks).
-FLAGS = {"--free", "--all", "--any", "--serious", "--again", "--roast", "--demo", "--write-tests", "--json"}
-VALUED = {"--last": int, "--free-checks": int, "--suspects": int, "--budget": float, "--since": str}
+FLAGS = {"--free", "--all", "--any", "--serious", "--again", "--roast", "--demo", "--write-tests", "--json", "--quick"}
+VALUED = {"--last": int, "--free-checks": int, "--suspects": int, "--budget": float, "--since": str, "--part-runs": int}
 
 
 def extras(root: Path, cfg) -> list:
@@ -1856,6 +1867,8 @@ def main(argv=None):
             return 2
     opt = lambda k, d: type(d)(argv[argv.index(k) + 1]) if k in argv else d  # noqa: E731
     ROAST[0] = "--roast" in argv
+    QUICK[0] = "--quick" in argv
+    PART_RUNS[0] = opt("--part-runs", 6)
     if not shutil.which("git"):
         print("Bite: git isn't installed (or isn't on PATH). Install it from https://git-scm.com, "
               "then open a new terminal window.")
@@ -1957,6 +1970,10 @@ def main(argv=None):
         if c.get("why"):  # say what broke, so it's clear whether it's the project or the copy
             print(f"           why: {c['why']}", flush=True)
         save_log(root, kept, cs)
+    unsplit = [c for c in free if c.get("parts_skipped")]
+    if unsplit:
+        print(f"  {len(unsplit)} noticed commit(s) weren't checked piece by piece: that check used its "
+              f"{opt('--part-runs', 6)} test runs (--part-runs N allows more).", flush=True)
     cs.sort(key=lambda c: -c["score"])
     found, tried = [], []
     before = [] if "--again" in argv else kept  # claims tested on an earlier run aren't paid for again

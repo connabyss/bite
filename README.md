@@ -300,6 +300,9 @@ badge line you can paste into your README:
 
 Prefer a gentler wording for the warnings? `bite --roast` gives the same results, phrased differently.
 
+In a hurry? `bite --quick` checks each change with two test runs, as older versions did: it skips the piece-by-piece
+check, the flaky-test rerun and the deleted-test check ([TRICKS.md](https://github.com/connabyss/bite/blob/main/TRICKS.md) says what those catch).
+
 ## Famous repos Bite has checked
 
 | Project | Language | Changes checked | Noticed by a test | Real gaps |
