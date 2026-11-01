@@ -72,10 +72,9 @@ ASK = {
 def ask_bite(args: dict) -> tuple:
     """(text for the AI, True if it's an error the AI should know it caused)."""
     import ask
-    folder = args.get("folder") or os.getcwd()
-    root = repo.repo_root(folder)
-    if root is None:
-        return (f"Bite: {folder} isn't inside a git repository. Pass the project's folder as folder.", True)
+    root, err = project(args)
+    if err:
+        return (err, True)
     if not str(args.get("question") or "").strip():
         return ("Bite: pass question, for example \"is the login fix guarded?\".", True)
     try:
@@ -93,12 +92,25 @@ def ask_bite(args: dict) -> tuple:
 TOOLS = {}
 
 
-def check_fix(args: dict) -> tuple:
-    """(text for the AI, True if it's an error the AI should know it caused)."""
+def project(args: dict) -> tuple:
+    """(the repository's top folder, "") for the folder the AI passed (or the one Bite started in), or (None, what
+    to tell the AI) when that isn't a folder in a git repository."""
     folder = args.get("folder") or os.getcwd()
+    if not isinstance(folder, str):
+        return None, "Bite: folder must be a path, like \"/home/me/project\"."
+    if not os.path.isdir(folder):
+        return None, f"Bite: {folder} isn't a folder. Pass the project's folder as folder."
     root = repo.repo_root(folder)
     if root is None:
-        return (f"Bite: {folder} isn't inside a git repository. Pass the project's folder as folder.", True)
+        return None, f"Bite: {folder} isn't inside a git repository. Pass the project's folder as folder."
+    return root, ""
+
+
+def check_fix(args: dict) -> tuple:
+    """(text for the AI, True if it's an error the AI should know it caused)."""
+    root, err = project(args)
+    if err:
+        return (err, True)
     since = args.get("since") or "HEAD"
     if repo.git(root, "rev-parse", "--verify", "-q", f"{since}^{{commit}}") is None:
         return (f"Bite: {since} isn't a commit or branch in {root}.", True)

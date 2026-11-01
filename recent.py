@@ -2226,6 +2226,7 @@ def demo(argv: list) -> int:
 # Every option main() accepts; each one must be in the help text above (the self-test checks).
 FLAGS = {"--free", "--all", "--any", "--serious", "--again", "--roast", "--demo", "--write-tests", "--json", "--quick"}
 VALUED = {"--last": int, "--free-checks": int, "--suspects": int, "--budget": float, "--since": str, "--part-runs": int}
+VALUE_EXAMPLE = {"--budget": "1.00", "--since": "main", "--part-runs": 6}
 
 
 def extras(root: Path, cfg) -> list:
@@ -2315,13 +2316,19 @@ def main(argv=None):
         return 0
     i = 0
     while i < len(argv):  # a typo must not fall through to the paid step
-        if argv[i] in VALUED and i + 1 < len(argv):
+        if argv[i] in VALUED and i + 1 >= len(argv):
+            print(f"Bite: {argv[i]} needs a value after it, like {argv[i]} {VALUE_EXAMPLE.get(argv[i], 10)}.")
+            return 2
+        if argv[i] in VALUED:
             kind = VALUED[argv[i]]
+            need = "a whole number" if kind is int else "a number"
             try:
-                kind(argv[i + 1])
+                below = kind is not str and kind(argv[i + 1]) < 0  # git log -n-5 would read the whole history
             except ValueError:
-                need = "a whole number" if kind is int else "a number"
                 print(f"Bite: {argv[i]} needs {need}, got {argv[i + 1]!r}.")
+                return 2
+            if below:
+                print(f"Bite: {argv[i]} needs {need} of 0 or more, got {argv[i + 1]!r}.")
                 return 2
             i += 2
         elif argv[i] in FLAGS or (argv[i] == "comeback" and i and argv[i - 1] == "--demo"):

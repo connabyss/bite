@@ -32,7 +32,8 @@ def changed(root: Path, base: str) -> list:
     """Files that differ from base in the working tree: committed since, staged, unstaged or new (not ignored)."""
     names = (repo.git(root, "diff", "--name-only", "--no-renames", base) or "").split("\n")
     names += (repo.git(root, "ls-files", "--others", "--exclude-standard") or "").split("\n")
-    return list(dict.fromkeys(n for n in names if n))
+    # A symbolic link holds a path, not code: copying it would write through the link in the copy.
+    return list(dict.fromkeys(n for n in names if n and not (root / n).is_symlink()))
 
 
 def fingerprint(root: Path, base: str, names: list) -> str:
