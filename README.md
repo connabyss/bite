@@ -65,7 +65,8 @@ bite --free
 `bite` now works in any terminal window. `bite --free` needs no key and costs nothing. It takes each recent
 change back out, runs your tests, and lists the changes no test guards, plus any new test that still passes
 without its commit's code (it tests nothing). If something it needs is missing, like git or pytest, it says
-so and gives you the line that installs it. Each run ends with a one-page report, `bite_proof/report.html`, to open in your browser. To update Bite later: `pipx upgrade bite-check`.
+so and gives you the line that installs it. Each run ends with a one-page report, `bite_proof/report.html`, to open in your browser. To update Bite later: `pipx upgrade bite-check` (if it warns that `bite.exe` or `bite` "does not match" and
+won't change it, an older copy is in the way: `pipx install --force bite-check` replaces it).
 
 To test the claims themselves (the paid step), add one extra package and set `ANTHROPIC_API_KEY`, then run `bite`:
 
@@ -117,8 +118,7 @@ command when the AI stops (it reads Claude Code's Stop hook JSON).
 `bite mcp` gives your coding AI the same free check as a tool it can call, `check_fix`, through MCP, the plug most
 coding AIs share. Its description tells the AI to call it after fixing a bug and before saying "fixed". If no test
 notices the change, the AI is told to add one that fails without it. No API key; it works in a copy, so your files
-are never touched. `bite mcp` is new: until the next release, install it with
-`pipx install --force git+https://github.com/connabyss/bite`.
+are never touched. It needs Bite 0.8.0 or newer (`pipx upgrade bite-check`).
 
 Add it once, in the place your coding AI keeps its MCP servers:
 
