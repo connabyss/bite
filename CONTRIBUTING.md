@@ -23,16 +23,20 @@ The tests need no key and no network. They should all pass before and after your
 
 ## PR checklist
 
-Opening a PR fills in a short checklist for you. A check stays red until each box is ticked (or says n/a
-on a box that doesn't apply). In short:
+Opening a PR fills in a short checklist for you. Its check never blocks your PR; it only reminds you of a box
+left unticked. The one real ask:
 
-- One fix per PR, linked to its issue, with a test that fails without your change.
-- Screenshots in light and dark mode if it changes how something looks.
-- `python -m pytest` passes, and CI is green.
-- Plain words in the PR description: what was wrong, what you changed, how you checked.
+- **For a bug fix, a test that fails without your change.** That's Bite's whole point, so we hold ourselves to
+  it too. Not sure your test catches it? Run `bite live` before you commit: it tells you whether any test
+  notices your change.
+- `python -m pytest` passes, and CI is green (those checks do block the merge).
+- One fix per PR, with plain words in the description: what was wrong, what you changed, how you checked.
+
+Nice to have, never required: light and dark screenshots if it changes how something looks (we can take them).
+If a small piece is left over, a maintainer may finish it for you and keep you as co-author.
 
 ## AI-assisted PRs
 
 Welcome. Bite exists to check AI-written fixes, so it would be odd to turn them away. Please add an
-`Assisted-by: <tool>` line to the commit message (for example `Assisted-by: Claude Code`), and make sure
-you've read and run the change yourself. Bite will probably be run on your PR.
+`Assisted-by: <tool>` line (for example `Assisted-by: Claude Code`) to the commit message or the PR
+description, and make sure you've read and run the change yourself. Bite will probably be run on your PR.

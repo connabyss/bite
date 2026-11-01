@@ -1,8 +1,9 @@
 """The PR checklist check. Run by .github/workflows/pr-checklist.yml on each pull request.
 
-It reads the pull request's description and goes red while a box from .github/pull_request_template.md is left
-unticked. A box that doesn't apply passes when its line says "n/a". A description with no boxes at all goes red
-too. Pull requests opened by bots (for example the ones Bite opens on itself) are skipped.
+It reads the pull request's description and lists, as warnings, any box from .github/pull_request_template.md that
+is left unticked (a box whose line says "n/a" counts as done). It never fails: it is a reminder, not a gate, so a
+first-time contributor never sees a red X over paperwork. The real gate is the test and CI checks.
+Pull requests opened by bots (for example the ones Bite opens on itself) are skipped.
 It can only see the boxes, not the work behind them. Standard library only.
 """
 
@@ -34,11 +35,10 @@ def main() -> int:
     if not left:
         print("Every box is ticked (or says n/a). Thanks!")
         return 0
-    print("Almost there. Tick these boxes in the pull request description, or write n/a on a line that doesn't apply:")
+    print("A friendly reminder, nothing blocks your PR. These boxes aren't ticked yet (write n/a if one doesn't apply):")
     for line in left:
-        print(f"::error::{line}")
-    print("Editing the description reruns this check.")
-    return 1
+        print(f"::warning::{line}")
+    return 0
 
 
 if __name__ == "__main__":
