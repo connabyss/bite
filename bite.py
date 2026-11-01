@@ -760,25 +760,56 @@ def load_failure(out: str) -> bool:
 HASH_COMMENTS = {".py", ".pyw", ".rb", ".sh", ".gd", ".r", ".pl", ".toml", ".yaml", ".yml", ".ini", ".cfg"}
 
 
-def strip_comment(line: str, suffix: str) -> str:
-    """Cut a trailing comment the way the file's language writes one: in Python // is floor division,
-    and in any language a # or // inside a string (a URL) isn't a comment."""
-    out, quote, i = [], "", 0
+# Strings that can run over several lines, by file type: inside one, a # or // is text, not a comment.
+LONG_QUOTES = {".py": ('"""', "'''"), ".pyw": ('"""', "'''"), ".gd": ('"""',),
+               ".js": ("`",), ".jsx": ("`",), ".mjs": ("`",), ".cjs": ("`",), ".ts": ("`",), ".tsx": ("`",), ".go": ("`",),
+               ".java": ('"""',), ".kt": ('"""',), ".kts": ('"""',), ".scala": ('"""',), ".swift": ('"""',), ".cs": ('"""',),
+               ".rs": ('"',), ".rb": ('"', "'"), ".sh": ('"', "'")}
+
+
+def code_lines(text: str, suffix: str) -> list:
+    """The file's lines with their comments cut, the way the file's language writes one (in Python // is floor division), reading the whole file: a string that
+    runs over several lines (a Python triple-quoted string, a JavaScript template) keeps its # and // as text,
+    so a change inside one (a colour "#fff", a URL "http://") counts as code."""
+    longs = sorted(LONG_QUOTES.get(suffix, ()), key=len, reverse=True)
     hash_ = suffix in HASH_COMMENTS
-    while i < len(line):
-        c = line[i]
+    out, cur, quote, i, n = [], [], "", 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "\n":
+            out.append("".join(cur))
+            cur = []
+            if quote and quote not in longs:
+                quote = ""  # an ordinary string ends with its line (or never closed)
+            i += 1
+            continue
         if quote:
-            if c == "\\":
-                out.append(line[i:i + 2]); i += 2; continue
-            if c == quote:
+            if c == "\\" and not (quote == "`" and suffix == ".go"):  # Go's `raw strings` have no escapes
+                cur.append(text[i:i + 2])
+                i += 2
+                continue
+            if text.startswith(quote, i):
+                cur.append(quote)
+                i += len(quote)
                 quote = ""
-        elif c in "'\"`":
-            quote = c
-        elif (hash_ and c == "#") or (not hash_ and line.startswith("//", i)):
-            break
-        out.append(c)
+                continue
+            cur.append(c)
+            i += 1
+            continue
+        q = next((q for q in longs if text.startswith(q, i)), "") or (c if c in "'\"`" else "")
+        if q:
+            quote = q
+            cur.append(q)
+            i += len(q)
+            continue
+        if (hash_ and c == "#") or (not hash_ and text.startswith("//", i)):
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        cur.append(c)
         i += 1
-    return "".join(out)
+    out.append("".join(cur))
+    return out
 
 
 def pid_alive(pid: int) -> bool:

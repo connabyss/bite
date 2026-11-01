@@ -216,8 +216,12 @@ def verdict(c: dict) -> tuple:
         mine = ", ".join(c.get("test_code", [])[:3])
         return "gap", "⚠️ ITS TESTS DIDN'T NOTICE", (f"It came with tests ({mine}), but they still pass with its code "
                                                      "taken out, so they check something else.")
+    if u == "unguarded: part":
+        return "gap", "⚠️ PART NOT NOTICED", (f"A test noticed part of it, but not {c.get('part', 'all of it').replace('`', '')}: "
+                                              "with only that part taken out, every test still passes.")
     if u.startswith("unguarded"):
-        return "gap", "⚠️ NO TEST NOTICED", "With it taken out, every test still passes."
+        return "gap", "⚠️ NO TEST NOTICED", "With it taken out, every test still passes." + (
+            f" ({c['flaky'].replace('`', '')} failed once without it, then passed: it fails now and then.)" if c.get("flaky") else "")
     if u.startswith("not flagged: "):
         return "cant", "❓ NOT CHECKED", f"{u[len('not flagged: '):]}."
     why = f" ({c['why']})" if c.get("why") else ""

@@ -288,6 +288,9 @@ stderr. Every run also saves them in `bite_proof/results.json`. These names stay
   is one.
 - `false_done`: each claim the paid step proved false, with `sha`, `subject`, `bug` and `today`.
 
+A commit that bundles a tested change with an untested one gets `no_test_noticed` with the label PART NOT NOTICED,
+and its `detail` names the part. [TRICKS.md](https://github.com/connabyss/bite/blob/main/TRICKS.md) has that and the other tricks we tried on Bite.
+
 ## Bite-proof badge
 
 When every change Bite checked had a test that noticed it, Bite ends with "Bite-proof. Nice work." and prints a
