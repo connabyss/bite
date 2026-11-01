@@ -2,7 +2,7 @@
 Bite: did your coding agent's recent "done" commits really do what they said?
 
     bite                      check the last 40 commits (step 2 needs an API key)
-    bite --version            print the installed version
+    bite --version            print the installed version, and the line to update when a newer one is out
     bite --free               step 1 only: no key, no cost
     bite --demo               try it on a tiny made-up project first (free, about 30 seconds)
     bite --demo comeback      see the comeback alarm: a later commit quietly undoes a fix, and Bite names it
@@ -1488,6 +1488,28 @@ def _installed_version():
         return found.group(1) if found else "unknown"
 
 
+UPDATE_LINE = 'pipx install --force bite-check --pip-args="--no-cache-dir"'
+
+
+def latest_version(timeout=3):
+    """The newest bite-check on PyPI, or None when it can't be told (offline, slow, or an odd answer). Only
+    bite --version asks, so a check never waits on the network."""
+    try:
+        import urllib.request
+        with urllib.request.urlopen("https://pypi.org/pypi/bite-check/json", timeout=timeout) as r:
+            return str(json.load(r)["info"]["version"])
+    except Exception:
+        return None
+
+
+def _newer(latest, current):
+    """True when the version latest is newer than current (plain numbers like 0.10.0; 0.10.0 is newer than 0.9.0)."""
+    try:
+        return tuple(map(int, latest.split("."))) > tuple(map(int, current.split(".")))
+    except (AttributeError, ValueError):
+        return False
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--json" in argv and argv[:1] not in (["live"], ["ask"], ["mcp"]) and not {"-h", "--help", "--version"} & set(argv):
@@ -1514,7 +1536,12 @@ def main(argv=None):
         import bite_mcp
         return bite_mcp.main(argv[1:])
     if "--version" in argv:
-        print(f"bite {_installed_version()}")
+        current = _installed_version()
+        print(f"bite {current}")
+        latest = latest_version()
+        if _newer(latest, current):
+            print(f"Bite {latest} is out. To update, paste this line:\n  {UPDATE_LINE}\n"
+                  "(pip users: python -m pip install --upgrade --no-cache-dir bite-check)")
         return 0
     if "-h" in argv or "--help" in argv:
         print(__doc__.strip())

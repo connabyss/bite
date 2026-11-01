@@ -111,14 +111,14 @@ project = (KIT / "pyproject.toml").read_text(encoding="utf-8")
 expected_version = next(line.split("=", 1)[1].strip().strip('"') for line in project.splitlines()
                         if line.startswith("version ="))
 buf = io.StringIO()
-with contextlib.redirect_stdout(buf):
+with patch.object(recent, "latest_version", return_value=None), contextlib.redirect_stdout(buf):
     rc = recent.main(["--version"])
 check("--version prints the installed version and exits 0",
       rc == 0 and buf.getvalue().strip() == f"bite {expected_version}")
 
 buf = io.StringIO()
 with patch("importlib.metadata.version", side_effect=PackageNotFoundError("bite-check")), \
-        contextlib.redirect_stdout(buf):
+        patch.object(recent, "latest_version", return_value=None), contextlib.redirect_stdout(buf):
     rc = recent.main(["--version"])
 check("--version falls back to pyproject.toml when Bite isn't installed",
       rc == 0 and buf.getvalue().strip() == f"bite {expected_version}")
