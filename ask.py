@@ -21,7 +21,9 @@ the matching commit instead (about a cent). --free never uses the key.
 import asyncio
 import os
 import re
+import shutil
 import sys
+import textwrap
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -193,54 +195,86 @@ def day_of(c: dict) -> str:
     return f"{d:%b} {d.day}"
 
 
-def name_of(c: dict) -> str:
-    return f"\"{recent.short(c['subject'])}\" ({c['sha'][:7]}, {day_of(c)})"
-
-
 def verdict(c: dict) -> tuple:
-    """(kind, one plain sentence) for one checked commit. kind is held, gap or cant."""
+    """(kind, label, one plain sentence) for one checked commit. kind is held, gap or cant; the gap labels are
+    the names the rest of Bite uses for those results."""
     u, caught = c.get("undo", ""), c.get("caught", "")
     if u.startswith("closed since"):
-        return "held", f"{name_of(c)} is guarded: a test added later fails with it taken out."
+        return "held", "✅ YES, A LATER TEST NOTICES", "A test added in a later commit fails with it taken out."
     if u.startswith("guarded"):
         one = caught and " more" not in caught
-        how = f"the test {caught.replace('`', '')} fails" if one else (
+        how = f"{caught.replace('`', '')} fails" if one else (
             f"the tests {caught.replace('`', '')} fail" if caught else "your tests fail")
-        return "held", f"{name_of(c)} is guarded: with it taken out, {how}."
+        return "held", "✅ YES, A TEST NOTICED", f"With it taken out, {how}."
     if u == "TEST GUARDS NOTHING":
         mine = ", ".join(c.get("test_code", [])[:3])
-        return "gap", (f"{name_of(c)} is not guarded: it came with tests ({mine}), but they still pass with its code "
-                       "taken out, so they check something else.")
+        return "gap", "⚠️ ITS TESTS DIDN'T NOTICE", (f"It came with tests ({mine}), but they still pass with its code "
+                                                     "taken out, so they check something else.")
     if u.startswith("unguarded"):
-        return "gap", f"{name_of(c)} is not guarded: with it taken out, every test still passes."
+        return "gap", "⚠️ NO TEST NOTICED", "With it taken out, every test still passes."
     if u.startswith("not flagged: "):
-        return "cant", f"{name_of(c)} wasn't checked: {u[len('not flagged: '):]}."
+        return "cant", "❓ NOT CHECKED", f"{u[len('not flagged: '):]}."
     why = f" ({c['why']})" if c.get("why") else ""
-    return "cant", f"{name_of(c)} couldn't be checked: {u}{why}."
+    return "cant", "❓ BITE COULDN'T CHECK IT", f"{u}{why}."
 
 
-def answer(checked: list) -> str:
-    """The plain answer: one opening word or two, then a sentence per commit."""
+def wrap(text: str, width: int, indent: str = "") -> str:
+    """Wrapped at spaces only, so a long word or number is never cut in two."""
+    return textwrap.fill(text, width=width, initial_indent=indent, subsequent_indent=indent,
+                         break_long_words=False, break_on_hyphens=False)
+
+
+def block(c: dict, width: int, emoji: bool) -> str:
+    """One commit's answer, a few short lines: the result, the commit's title, its id and day, and why."""
+    _, label, why = verdict(c)
+    if not emoji:
+        label = label.split(" ", 1)[1]
+    return "\n".join([label, wrap(recent.short(c["subject"]), width, "   "), f"   {c['sha'][:7]}, {day_of(c)}",
+                      wrap(why, width, "   ")])
+
+
+def opening(kinds: list) -> str:
+    """The answer in a few words, before the details."""
+    n, held, gaps = len(kinds), kinds.count("held"), kinds.count("gap")
+    if n == 1:
+        return {"held": "Yes, it's guarded.", "gap": "No, nothing guards it."}.get(kinds[0], "Bite couldn't check it.")
+    if held == n:
+        return f"Yes, a test noticed all {n} matching fixes."
+    if held and gaps:
+        return f"Partly: a test noticed {held} of the {n} matching fixes."
+    if gaps:
+        return (f"No, no test noticed any of the {n} matching fixes." if gaps == n
+                else "No, as far as Bite could check: no test noticed the fixes it could check.")
+    if held:
+        return "Yes, as far as Bite could check: a test noticed every fix it could check."
+    return "Bite couldn't check them."
+
+
+def answer(checked: list, width: int = 88, emoji: bool = True) -> str:
+    """The plain answer: an opening line, then a short block per commit, then what to do next."""
+    if not checked:
+        return "Bite couldn't tell."
     kinds = [verdict(c)[0] for c in checked]
-    if kinds and all(k == "held" for k in kinds):
-        head = "Yes."
-    elif kinds and all(k in ("gap", "cant") for k in kinds) and "gap" in kinds:
-        head = "No." if all(k == "gap" for k in kinds) else "No, as far as Bite could check."
-    elif "gap" in kinds:
-        head = "Partly."
-    elif "held" in kinds:
-        head = "Yes, as far as Bite could check."
-    else:
-        head = "Bite couldn't tell."
-    lines = [f"{head} {verdict(checked[0])[1]}"] if checked else [head]
-    lines += [f"Also: {verdict(c)[1]}" for c in checked[1:]]
+    parts = [wrap(opening(kinds), width)] + [block(c, width, emoji) for c in checked]
     if "gap" in kinds:
-        lines.append("Next: add a test that fails without that change, then ask again.")
-    return "\n".join(lines)
+        parts.append(wrap("Next: add a test that fails without that change, then ask again.", width))
+    return "\n\n".join(parts)
+
+
+def look() -> tuple:
+    """(width, emoji) for this terminal: its width up to 88, and emoji only where they can show (not piped, and
+    a console that can write them; old Windows consoles can't)."""
+    width = max(40, min(88, shutil.get_terminal_size((88, 24)).columns - 1))
+    try:
+        "✅⚠️❓".encode(sys.stdout.encoding or "ascii")
+        emoji = sys.stdout.isatty()
+    except (UnicodeError, LookupError, AttributeError, ValueError):
+        emoji = False
+    return width, emoji
 
 
 def ask(root: Path, question: str, last: int = 100, most: int = 3, free: bool = False, now=None,
-        log=print) -> dict:
+        log=print, width: int = 88, emoji: bool = True) -> dict:
     """Find the commit(s) the question is about and check each. {"text", "status", "checked"}; status is held,
     gap, mixed, cant or none (nothing matched)."""
     question = (question or "").strip()
@@ -292,9 +326,10 @@ def ask(root: Path, question: str, last: int = 100, most: int = 3, free: bool = 
     for c in picked:
         c["undo"] = recent.undo_check(root, c, cfg)
     kinds = {verdict(c)[0] for c in picked}
-    text = answer(picked)
+    text = answer(picked, width, emoji)
     if how == "weak":
-        text += "\n(These only loosely match your words. If it's the wrong commit, use words from its message.)"
+        text += "\n\n" + wrap("(These only loosely match your words. If it's the wrong commit, use words from its "
+                              "message.)", width)
     status = ("held" if kinds == {"held"} else "gap" if kinds <= {"gap", "cant"} and "gap" in kinds
               else "mixed" if "gap" in kinds else "held" if "held" in kinds else "cant")
     return {"status": status, "checked": picked, "text": text, "how": how, "seconds": time.time() - t0}
@@ -323,8 +358,9 @@ def main(argv: list) -> int:
     if root is None:
         print("Bite: not inside a git repository.")
         return 1
+    width, emoji = look()
     r = ask(root, " ".join(words_), opts["--last"], opts["--max"], free="--free" in argv,
-            log=lambda s: print(s, flush=True))
+            log=lambda s: print(s, flush=True), width=width, emoji=emoji)
     print(r["text"])
     return 1 if r["status"] in ("gap", "mixed") else 0
 
