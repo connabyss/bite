@@ -98,3 +98,21 @@ def test_descriptions_hold_no_expressions():
     yaml = pytest.importorskip("yaml")
     assert yaml.safe_load(text)["inputs"]["write-tests"]["default"] == "false"
     assert not [ln for ln in text.splitlines() if ln.strip().startswith("description:") and "${{" in ln]
+
+
+def test_marketplace_description_reads_cleanly():
+    # The Marketplace listing showed "each commit s code change": it dropped the apostrophe. Keep the line free of
+    # apostrophes, ending in a full stop, and within the 125 characters the listing shows.
+    yaml = pytest.importorskip("yaml")
+    line = yaml.safe_load((KIT / "action.yml").read_text(encoding="utf-8"))["description"]
+    assert "'" not in line and "\u2019" not in line
+    assert line.endswith(".") and len(line) <= 125
+
+
+def test_readme_links_work_on_pypi():
+    # PyPI shows the README too, but not the repo's files: a relative image or link there is broken.
+    import re
+    text = (KIT / "README.md").read_text(encoding="utf-8")
+    relative = [t for t in re.findall(r'(?:src|srcset)="([^"]+)"|\]\(([^)]+)\)', text) for t in t if t
+                and not t.startswith(("http://", "https://", "#", "mailto:"))]
+    assert relative == []

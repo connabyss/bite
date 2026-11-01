@@ -39,6 +39,13 @@ def test_unknown_language_gets_the_setup_note():
     assert "couldn't tell how your tests run" in welcome.issue_body(repo(language="Haskell"))
 
 
+def test_java_and_kotlin_repos_get_java_set_up():
+    # Bite checks Maven and Gradle projects, but a Java or Kotlin repo got "Bite couldn't tell how your tests run"
+    for lang in ("Java", "Kotlin"):
+        assert "actions/setup-java" in welcome.workflow(lang)
+        assert "couldn't tell how your tests run" not in welcome.issue_body(repo(language=lang))
+
+
 def test_a_repo_with_no_language_yet_gets_the_python_setup():
     # a fresh fork of Rich had no language yet, so its owner got the generic file and had to write the setup
     fresh = repo(language=None)

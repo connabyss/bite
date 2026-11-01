@@ -80,8 +80,13 @@ SETUP = {
     "C#": """      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x""",
+    "Java": """      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'""",
 }
 SETUP["TypeScript"] = SETUP["JavaScript"]
+SETUP["Kotlin"] = SETUP["Java"]  # Maven and Gradle come with GitHub's Ubuntu machines.
 OTHER = """      # Install what your tests need here, e.g. actions/setup-python, then set test_command in a .bite.ini file
       # (see https://github.com/connabyss/bite)."""
 

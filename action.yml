@@ -1,5 +1,5 @@
 name: Bite free check
-description: On a pull request, take each commit's code change back out and run the tests. Fails if no test notices.
+description: Takes each pull request commit back out and runs your tests. Fails with NO TEST NOTICED when no test catches it.
 branding:
   icon: check-circle
   color: green
