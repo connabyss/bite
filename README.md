@@ -117,8 +117,7 @@ command when the AI stops (it reads Claude Code's Stop hook JSON).
 `bite mcp` gives your coding AI the same free check as a tool it can call, `check_fix`, through MCP, the plug most
 coding AIs share. Its description tells the AI to call it after fixing a bug and before saying "fixed". If no test
 notices the change, the AI is told to add one that fails without it. No API key; it works in a copy, so your files
-are never touched. `bite mcp` is new: until the next release, install it with
-`pipx install --force git+https://github.com/connabyss/bite`.
+are never touched. It needs Bite 0.8.0 or newer (`pipx upgrade bite-check`).
 
 Add it once, in the place your coding AI keeps its MCP servers:
 
