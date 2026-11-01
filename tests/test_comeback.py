@@ -116,8 +116,11 @@ def test_every_output_says_it():
         assert "came undone" in text.splitlines()[1] and "Simplify total()" in text
         page = recent.write_html(root, [c], [], 1).read_text(encoding="utf-8")
         assert "undone by a later commit" in page and "Bite-proof" not in page
-    kind, sentence = ask.verdict({**c, "time": 1767268800})
-    assert kind == "gap" and "Simplify total()" in sentence
+    kind, label, sentence = ask.verdict({**c, "time": 1767268800})
+    assert kind == "gap" and label == "🔁 UNDONE BY A LATER COMMIT" and "Simplify total()" in sentence
+    assert "UNDONE BY A LATER COMMIT" in ask.answer([{**c, "time": 1767268800}], emoji=False)
+    kind, label, sentence = ask.verdict({**c, "undo": "reverted since", "time": 1767268800})
+    assert kind == "cant" and "on purpose" in sentence
 
 
 def test_the_comeback_demo_names_the_culprit():
