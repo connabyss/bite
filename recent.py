@@ -224,6 +224,25 @@ def skip_reason(subject: str, said: str, code: str | None = None) -> str:
     return ""
 
 
+# Go builds a file named x_windows.go (or x_windows_amd64.go) only on that system: on any other it isn't compiled.
+GO_OS = {"windows": "win", "darwin": "mac", "ios": "mac", "linux": "linux", "android": "linux", "freebsd": "", "openbsd": "",
+         "netbsd": "", "dragonfly": "", "solaris": "", "illumos": "", "aix": "", "plan9": "", "js": "", "wasip1": "", "hurd": ""}
+GO_ARCH = r"(?:_(?:386|amd64|arm|arm64|loong64|mips|mipsle|mips64|mips64le|ppc64|ppc64le|riscv64|s390x|wasm))?"
+
+
+def go_os_only(code: list) -> str:
+    """Why the commit can't be checked here when every code file it changed is a Go file built only for another
+    system (by its name), else "". Taking out code that isn't compiled here can't make a test fail."""
+    names = {"win": "Windows", "mac": "macOS", "linux": "Linux"}
+    oses = []
+    for rel in code:
+        m = re.search(rf"_({'|'.join(GO_OS)}){GO_ARCH}\.go$", rel.lower())
+        if not m or GO_OS[m.group(1)] == HERE:
+            return ""
+        oses.append(names.get(GO_OS[m.group(1)]) or m.group(1))
+    return f"built for {'/'.join(sorted(set(oses)))}, can't be checked on {names[HERE]}" if oses else ""
+
+
 def tests_touch(root: Path, c: dict) -> bool:
     """The commit's own tests name the code it changed: a changed file's module or class, or a function or class
     the change defines. Tests that name none of them were written for other code."""
@@ -385,6 +404,18 @@ def files_of(root: Path, c: dict, cfg) -> None:
     c["tests"] = [n for n in names if bite.is_test_file(n, cfg)]
     c["code"] = [n for n in names if n not in c["tests"] and Path(n).suffix.lower() in repo.CODE_SUFFIXES
                  and not repo.is_setup(n, cfg) and not comment_only(root, c["sha"], n, moved.get(n, ""))]
+    # A Rust file keeps its unit tests in the same file (#[cfg(test)] mod tests): a commit that changed only those is
+    # a test change, and one that changed both added or changed tests too.
+    for n in [n for n in c["code"] if n.lower().endswith(".rs")]:
+        old = repo.git(root, "cat-file", "blob", f"{c['sha']}^:{moved.get(n, n)}", raw=True)
+        new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{n}", raw=True)
+        if old is None or new is None:
+            continue
+        if rust_code_same(old, new):
+            c["code"].remove(n)
+            c["tests"].append(n)
+        elif keep_rust_tests(old, new) != old:
+            c["tests"].append(n)
     c["moved"] = {n: o for n, o in moved.items() if n in c["code"]}
     # Code in a language the test command doesn't run can't fail a test: taking it out says nothing about it.
     runs = repo.runs_language(cfg.test_cmd)[1]
@@ -398,7 +429,7 @@ def files_of(root: Path, c: dict, cfg) -> None:
     # Trailers out first: "Co-Authored-By" would match auth in every co-authored commit.
     said = c["subject"] + " " + re.sub(r"(?im)^[\w-]+-by:.*$", "", c["body"])[:400]
     c["serious"] = claims and bool(MATTERS.search(said))
-    c["skip"] = skip_reason(c["subject"], said, code_text(root, c))
+    c["skip"] = skip_reason(c["subject"], said, code_text(root, c)) or go_os_only(c["code"])
     c["test_code"] = [n for n in c["tests"] if Path(n).suffix.lower() in repo.CODE_SUFFIXES]
     # No test is suspect, and so is a new test (it may check nothing the change did): the free pass tells which.
     c["score"] = ((3 if claims else 0) + (2 if not c["tests"] or c["test_code"] else 0) + (1 if 0 < c["lines"] <= 80 else 0)
@@ -520,7 +551,62 @@ def take_out(root: Path, c: dict, folder: Path) -> None:
         elif old is None:
             t.unlink(missing_ok=True)
         else:
+            if t.suffix.lower() == ".rs" and t.is_file() and not t.is_symlink():
+                old = keep_rust_tests(old, t.read_bytes())  # its own tests stay, as a separate test file would
             bite.safe_write(folder, t, old)
+
+
+RUST_TEST_ATTR = re.compile(r"^\s*#\[cfg\(test\)\]\s*$")
+RUST_MOD_OPEN = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{")
+
+
+def rust_test_spans(lines: list) -> list:
+    """Where a Rust file's own test modules are: (first line, last line) of each `#[cfg(test)] mod tests { ... }`.
+    In Rust a file's unit tests usually live at its bottom, in the same file as the code they test."""
+    spans, i = [], 0
+    while i < len(lines):
+        if RUST_TEST_ATTR.match(lines[i]):
+            j = i + 1
+            while j < len(lines) and (not lines[j].strip() or lines[j].lstrip().startswith(("#[", "//"))):
+                j += 1
+            if j < len(lines) and RUST_MOD_OPEN.match(lines[j]):
+                depth = 0
+                for k in range(j, len(lines)):
+                    bare = re.sub(r'//.*|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])\'', "", lines[k])  # no braces from strings
+                    depth += bare.count("{") - bare.count("}")
+                    if depth <= 0:
+                        spans.append((i, k))
+                        i = k
+                        break
+        i += 1
+    return spans
+
+
+def keep_rust_tests(old: bytes, new: bytes) -> bytes:
+    """The Rust file as it was before the commit, but with the commit's own test modules: taking the change out must
+    leave the tests it added in place, as it does for a separate test file."""
+    a = old.decode("utf-8", "replace").splitlines(keepends=True)
+    b = new.decode("utf-8", "replace").splitlines(keepends=True)
+    sa, sb = rust_test_spans(a), rust_test_spans(b)
+    if not sb:
+        return old
+    tests = [ln for s, e in sb for ln in b[s:e + 1]]
+    at = sa[0][0] if sa else len(a)
+    gone = {i for s, e in sa for i in range(s, e + 1)}
+    before = [ln for i, ln in enumerate(a[:at]) if i not in gone]
+    after = [ln for i, ln in enumerate(a[at:], at) if i not in gone]
+    if before and not before[-1].endswith("\n"):
+        before[-1] += "\n"
+    return "".join(before + tests + after).encode()
+
+
+def rust_code_same(old: bytes | None, new: bytes | None) -> bool:
+    """Only the file's test modules changed: its code (and its doc comments) are the same."""
+    if old is None or new is None:
+        return False
+    strip = lambda t: "".join(ln for i, ln in enumerate(t) if not any(s <= i <= e for s, e in rust_test_spans(t)))  # noqa: E731
+    return strip(old.decode("utf-8", "replace").splitlines(keepends=True)).split() == \
+        strip(new.decode("utf-8", "replace").splitlines(keepends=True)).split()
 
 
 def is_rust_doc(line: str) -> bool:
@@ -594,7 +680,7 @@ def doc_example_catches(root: Path, c: dict, folder: Path, fcfg) -> bool:
             continue
         old = repo.git(root, "cat-file", "blob", f"{before}:{c.get('moved', {}).get(rel, rel)}", raw=True)
         new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True)
-        kept = keep_docs(old, new) if old is not None and new is not None else None
+        kept = keep_docs(keep_rust_tests(old, new), new) if old is not None and new is not None else None
         if kept is not None:
             bite.safe_write(folder, folder / rel, kept)
             changed = True
@@ -872,10 +958,14 @@ def parts(root: Path, c: dict) -> list:
         a = old.decode("utf-8", "replace").splitlines(keepends=True)
         b = new.decode("utf-8", "replace").splitlines(keepends=True)
         groups = {}
+        sa, sb = (rust_test_spans(a), rust_test_spans(b)) if rel.lower().endswith(".rs") else ([], [])
+        inside = lambda spans, lo, hi: all(any(s <= x <= e for s, e in spans) for x in range(lo, hi))  # noqa: E731
         for op in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
             if op[0] == "equal":
                 continue
             _, i1, i2, j1, j2 = op
+            if (sa or sb) and inside(sa, i1, i2) and inside(sb, j1, j2):
+                continue  # the commit's own unit tests: a test, not a piece of the change
             name = owner(b, j1) if j2 > j1 else owner(a, i1)
             groups.setdefault(name, []).append(op)
         for name, ops in groups.items():
