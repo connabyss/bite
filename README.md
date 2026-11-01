@@ -289,6 +289,8 @@ stderr. Every run also saves them in `bite_proof/results.json`. These names stay
   Bite shows), and `why`, `missing_test` or `undone_by` (`sha` and `subject` of the commit that undid it) when there
   is one.
 - `false_done`: each claim the paid step proved false, with `sha`, `subject`, `bug` and `today`.
+- `score`: the Bite score (below), with `noticed`, `out_of` and `badge` (a README badge line). Left out when no
+  change could be checked.
 
 A commit that bundles a tested change with an untested one gets `no_test_noticed` with the label PART NOT NOTICED,
 and its `detail` names the part. [TRICKS.md](https://github.com/connabyss/bite/blob/main/TRICKS.md) has that and the other tricks we tried on Bite.
@@ -299,6 +301,18 @@ When every change Bite checked had a test that noticed it, Bite ends with "Bite-
 badge line you can paste into your README:
 
 [![Bite-proof ✅](https://img.shields.io/badge/Bite--proof-%E2%9C%85-black)](https://github.com/connabyss/bite)
+
+## Bite score
+
+Every run ends with a score: of the changes Bite could check, how many a test noticed ("Bite score: 7/9"). Changes
+it skipped, or couldn't check because the tests already fail, don't count either way. The report page shows it as
+a ring, and the pull request comment adds it in one small line. Bite also prints a badge line with the score, for
+your README:
+
+[![Bite score: 7 of 9 changes noticed by a test](https://img.shields.io/badge/Bite%20score-7%2F9%20noticed-yellowgreen)](https://github.com/connabyss/bite)
+
+Each run also saves `bite_proof/badge.json` in [shields.io's endpoint format](https://shields.io/badges/endpoint-badge),
+so a badge can follow your newest run wherever you publish that file.
 
 Prefer a gentler wording for the warnings? `bite --roast` gives the same results, phrased differently.
 
