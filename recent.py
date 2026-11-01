@@ -1634,6 +1634,49 @@ def trend_words(n: int, total: int, trend: dict | None) -> str:
     return "same as last run" if b == (n, total) else f"last run: {b[0]}/{b[1]}"
 
 
+# The cat from assets/bite-logo.svg, for the share card (inline, so the card is one file that works offline).
+CAT_SVG = ('<defs><mask id="m"><rect width="200" height="200" fill="white"/><path d="M86 133 Q93 140 100 133 Q107 140 '
+           '114 133" fill="none" stroke="black" stroke-width="3.2" stroke-linecap="round"/></mask></defs><g mask="url(#m)">'
+           '<path fill="#141118" d="M36 102 C34 80 38 52 44 24 C60 38 72 50 80 56 Q100 50 120 56 C128 50 140 38 156 24 '
+           'C162 52 166 80 164 102 C164 142 136 170 100 170 C64 170 36 142 36 102 Z"/></g>'
+           '<path fill="#c4e83a" d="M54 98 Q76 84 93 105 Q70 117 54 98 Z"/><path fill="#c4e83a" d="M146 98 Q124 84 107 105 '
+           'Q130 117 146 98 Z"/><ellipse cx="75" cy="101" rx="2.6" ry="9" fill="#141118"/><ellipse cx="125" cy="101" '
+           'rx="2.6" ry="9" fill="#141118"/><path fill="#e88a96" d="M95 122 L105 122 L100 128 Z"/>'
+           '<path fill="#fbf8ee" d="M104.5 136.5 L112 136 L108 149 Z"/>')
+
+
+def write_card(root: Path, n: int, total: int, trend_line: str = "") -> Path | None:
+    """bite_proof/card.svg: the score as a 1200x630 picture to share (the size link previews use)."""
+    import html
+    from datetime import date
+    if not total:
+        return None
+    e = html.escape
+    arc, done = 2 * 3.14159 * 150, n == total
+    colour = "#5fbf86" if done else "#e0a84a"
+    words = ("Every change Bite checked had a test that noticed it." if done else
+             f"A test noticed {n} of the {total} changes Bite checked.")
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img"
+ aria-label="Bite score for {e(root.name)}: {n} of {total} changes noticed by a test">
+<rect width="1200" height="630" fill="#161615"/>
+<g transform="translate(225 315)"><circle r="150" fill="#22211f" stroke="#2c2b29" stroke-width="28"/>
+<circle r="150" fill="none" stroke="{colour}" stroke-width="28" stroke-linecap="round" transform="rotate(-90)"
+ stroke-dasharray="{arc * n / total:.1f} {arc:.1f}"/>
+<svg x="-80" y="-84" width="160" height="166" viewBox="20 14 160 166">{CAT_SVG}</svg></g>
+<g font-family="system-ui,-apple-system,'Segoe UI',sans-serif" fill="#ecebe6">
+<text x="450" y="150" font-size="34" fill="#9a9992">Bite score · {e(root.name[:40])}</text>
+<text x="442" y="320" font-size="{190 if len(f"{n}/{total}") <= 5 else 130}" font-weight="700" fill="{colour}">{n}/{total}</text>
+<text x="450" y="392" font-size="30">{e(words)}</text>
+{f'<text x="450" y="444" font-size="30" fill="{"#e0a84a" if trend_line.startswith("Down") else "#5fbf86"}">{e(trend_line)}</text>' if trend_line else ""}
+<text x="450" y="560" font-size="24" fill="#9a9992">{date.today().isoformat()} · if this change disappeared, would any test notice?</text>
+<text x="450" y="596" font-size="24" fill="#9a9992">github.com/connabyss/bite</text></g>
+</svg>
+"""
+    p = proof_dir(root) / "card.svg"
+    p.write_text(svg, encoding="utf-8")
+    return p
+
+
 def flat(text: str) -> str:
     """say()'s sentence without its Markdown, for the terminal and the report page."""
     return re.sub(r"\[([^]]+)\]\([^)]+\)", r"\1", text).replace("**", "").replace("`", "")
@@ -1698,7 +1741,9 @@ def write_html(root: Path, cs: list, tried: list, seconds: float, trend: dict | 
                    if ROAST[0] else f"No test noticed any of the {total} changes Bite could check." if n == 0 else
                    f"A test noticed {n} of the {total} changes Bite could check. The other {total - n} could break "
                    "quietly.")
-                + f'<div class="why">README badge: <code>{e(score_badge(n, total))}</code></div></div></div>')
+                + f'<div class="why">README badge: <code>{e(score_badge(n, total))}</code>'
+                + (' &middot; <a href="card.svg">a picture of this score to share</a>' if (proof_dir(root) / "card.svg").is_file() else "")
+                + '</div></div></div>')
     bad = [c for c in checked if say(c)[0] in ("gap", "odd", "back")]
     mw, wanted = most_wanted(cs) if len(bad) > 1 else None, ""
     if mw:
@@ -2367,9 +2412,11 @@ def main(argv=None):
         print(f"\nMost wanted: {mw[0]['sha'][:8]} \"{short(mw[0]['subject'])}\": if you write one test today, make it "
               f"this one ({mw[1]}).")
     n, total = score([say(c)[0] for c in checked])
+    (proof_dir(root) / "card.svg").unlink(missing_ok=True)  # an old run's card would show the wrong score
     trend = remember_score(root, n, total, repo.git(root, "rev-parse", "HEAD") or "") if total and not since else None
     if total:
         tw = trend_words(n, total, trend)
+        write_card(root, n, total, tw[0].upper() + tw[1:] if tw else "")
         print(f"Bite score: {n}/{total} (a test noticed {n} of the {total} changes Bite could check)."
               + (f" {tw[0].upper() + tw[1:]}." if tw else "")
               + (f"\nScore badge for your README: {score_badge(n, total)}" if n < total else ""))
