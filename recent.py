@@ -2091,6 +2091,14 @@ def write_results(root: Path, cs: list, none: str = "", error: str = "", newest:
     return p
 
 
+def arg(path: str) -> str:
+    """A file path ready to paste into a shell command: quoted when it has a space or another character the shell
+    would read ("my pkg/shop.py"). Double quotes where they're safe, since bash, PowerShell and cmd all read them."""
+    if re.fullmatch(r"[\w./:@%+=,-]+", path):
+        return path
+    return f'"{path}"' if not re.search(r'[$`"\\!]', path) else shlex.quote(path)
+
+
 def undo_steps(root: Path, sha: str, files: list, moved: dict | None = None) -> list:
     """The commands that take a commit's code change back out: restore the files it edited, delete the ones it
     created. `git checkout <sha>^ -- <file>` fails for a file the commit added, so it can't carry those. A file it
@@ -2098,14 +2106,14 @@ def undo_steps(root: Path, sha: str, files: list, moved: dict | None = None) -> 
     restored, created, steps = [], [], []
     for rel in files:
         if (moved or {}).get(rel):
-            steps.append(f"git show {sha}^:{moved[rel]} > {rel}")
+            steps.append(f"git show {arg(f'{sha}^:{moved[rel]}')} > {arg(rel)}")
             continue
         target = restored if repo.git(root, "cat-file", "blob", f"{sha}^:{rel}", raw=True) is not None else created
         target.append(rel)
     if created:
-        steps.append("rm -f " + " ".join(created))
+        steps.append("rm -f " + " ".join(map(arg, created)))
     if restored:
-        steps.append(f"git checkout {sha}^ -- {' '.join(restored)}")
+        steps.append(f"git checkout {sha}^ -- {' '.join(map(arg, restored))}")
     return steps
 
 
@@ -2125,16 +2133,16 @@ def write_free(root: Path, cfg, flagged: list) -> Path:
             steps = []
             for rel, data in c["part_undo"].items():
                 if data is None:
-                    steps.append(f"rm -f {rel}")
+                    steps.append(f"rm -f {arg(rel)}")
                     continue
                 keep = proof_dir(root) / f"{sha[:8]}_part_{Path(rel).name}"
                 keep.write_bytes(data)
-                steps.append(f"cp {keep.as_posix()} {rel}")
+                steps.append(f"cp {arg(keep.as_posix())} {arg(rel)}")
         lines += [f"## {i}. {sha[:8]} {c['subject']}", "", f"- What Bite saw: {say(c)[2][3:]}",
                   f"- Code it changed: {', '.join(c['code'])}", "", "Check it yourself (a throwaway copy; your checkout "
                   "isn't touched):", "", "```", f"git worktree add ../bite_check {sha}", "cd ../bite_check",
                   *steps, f"{cfg.test_cmd}", "# every test passes: no test noticed the change was gone",
-                  f"cd {root.as_posix()}", "git worktree remove --force ../bite_check", "```", "", "Hand this to your coding AI:", "", "```",
+                  f"cd {arg(root.as_posix())}", "git worktree remove --force ../bite_check", "```", "", "Hand this to your coding AI:", "", "```",
                   f"Commit {sha[:8]} (\"{c['subject']}\") changed {', '.join(c['code'])}. With that change undone, "
                   f"the tests still pass ({'its own tests: ' + ', '.join(c['test_code']) if c.get('test_code') else 'no test covers it'}). "
                   "Write one small test of what this commit changed, next to the existing tests. Show that it fails "
