@@ -311,6 +311,10 @@ your README:
 
 [![Bite score: 7 of 9 changes noticed by a test](https://img.shields.io/badge/Bite%20score-7%2F9%20noticed-yellowgreen)](https://github.com/connabyss/bite)
 
+Bite remembers each run's score in `bite_proof/scores.json` and says how it moved: "up from 5/9 last run", "down
+from 8/9 last run", or "Bite-proof 3 runs in a row". A rerun at the same commit doesn't count twice, and pull request
+checks (`--since`) aren't remembered, since they look at different commits.
+
 Each run also saves `bite_proof/badge.json` in [shields.io's endpoint format](https://shields.io/badges/endpoint-badge),
 so a badge can follow your newest run wherever you publish that file.
 
