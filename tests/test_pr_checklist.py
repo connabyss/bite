@@ -1,4 +1,4 @@
-"""bot/pr_checklist.py, the check that goes red while a box in the pull request description is left unticked."""
+"""bot/pr_checklist.py, the check that reminds about unticked boxes in the pull request description, without ever failing."""
 
 import json
 import os
@@ -13,8 +13,8 @@ from pr_checklist import problems  # noqa: E402
 TEMPLATE = (KIT / ".github" / "pull_request_template.md").read_text(encoding="utf-8")
 
 
-def test_the_template_as_opened_is_red_for_every_box():
-    assert len(problems(TEMPLATE)) == 5
+def test_the_template_as_opened_lists_every_box():
+    assert len(problems(TEMPLATE)) == 3
 
 
 def test_all_ticked_is_green():
@@ -50,9 +50,14 @@ def run(tmp_path, body, user_type="User"):
                           env={"GITHUB_EVENT_PATH": str(event), "SYSTEMROOT": os.environ.get("SYSTEMROOT", "")})
 
 
-def test_the_step_fails_and_names_the_unticked_box(tmp_path):
+def test_the_step_never_fails_and_warns_about_the_unticked_box(tmp_path):
     r = run(tmp_path, "- [x] test\n- [ ] CI is green")
-    assert r.returncode == 1 and "::error::CI is green" in r.stdout
+    assert r.returncode == 0 and "::warning::CI is green" in r.stdout and "::error::" not in r.stdout
+
+
+def test_the_step_passes_with_no_checklist_at_all(tmp_path):
+    r = run(tmp_path, "Fixed the thing.")
+    assert r.returncode == 0 and "::warning::" in r.stdout
 
 
 def test_the_step_passes_when_ticked(tmp_path):
