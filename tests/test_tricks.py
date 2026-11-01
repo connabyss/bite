@@ -35,7 +35,7 @@ def write(root, files):
 
 def make(tmp_path, files=None):
     root = tmp_path / "proj"
-    root.mkdir()
+    root.mkdir(parents=True)
     git(root, "init", "-q")
     write(root, {".bite.ini": f"[bite]\ntest_command = {PY} -m pytest -q -p no:cacheprovider\n",
                  "shop.py": SHOP, "tests/test_shop.py": LABEL_TEST, **(files or {})})
@@ -294,3 +294,48 @@ def test_two_unnoticed_pieces_in_one_file_come_out_together(tmp_path):
     assert "return sum(prices)" in both and "return x\n" in both and "strip()" in both
     r = only(root)
     assert "total() in shop.py" in r["detail"] and "tax() in shop.py" in r["detail"], r
+
+
+def bundled(tmp_path):
+    root = make(tmp_path)
+    write(root, {"shop.py": ROUNDED.replace("name.title()", "name.strip().title()"),
+                 "tests/test_shop.py": LABEL_TEST.replace("label('tea')", "label(' tea ')")})
+    commit(root, "Fix total rounding")
+    return root
+
+
+def run_with(root, *extra):
+    p = subprocess.run([PY, str(KIT / "recent.py"), "--free", "--json", "--last", "1", *extra], cwd=root,
+                       capture_output=True, text=True, timeout=600)
+    return json.loads(p.stdout)["commits"][0], p.stderr
+
+
+def test_quick_skips_the_piece_check(tmp_path):
+    r, _ = run_with(bundled(tmp_path), "--quick")
+    assert r["result"] == "noticed", r
+
+
+def test_the_piece_check_keeps_to_its_run_budget(tmp_path):
+    root = bundled(tmp_path)
+    r, err = run_with(root, "--part-runs", "1")  # the commit has 2 pieces: not enough runs left to split it
+    assert r["result"] == "noticed" and "weren't checked piece by piece" in err, (r, err)
+    r, _ = run_with(root, "--part-runs", "2")
+    assert r["label"] == "PART NOT NOTICED", r
+
+
+def test_quick_skips_the_flaky_rerun_and_the_deleted_test_check(tmp_path):
+    flaky = ("from pathlib import Path\n\n\ndef test_sometimes():\n    f = Path(__file__).with_name('runs.txt')\n"
+             "    n = int(f.read_text()) + 1 if f.exists() else 1\n    f.write_text(str(n))\n    assert n != 2\n")
+    root = make(tmp_path / "a", {"tests/test_flaky.py": flaky})
+    write(root, {"shop.py": ROUNDED})
+    commit(root, "Fix total rounding")
+    assert run_with(root, "--quick")[0]["result"] == "noticed"  # one failure is taken at its word
+    root = make(tmp_path / "b")
+    write(root, {"shop.py": ROUNDED, "tests/test_total.py": TOTAL_TEST})
+    commit(root, "Fix total rounding")
+    (root / "tests" / "test_total.py").unlink()
+    commit(root, "Remove slow test")
+    p = subprocess.run([PY, str(KIT / "recent.py"), "--free", "--json", "--last", "2", "--quick"], cwd=root,
+                       capture_output=True, text=True, timeout=600)
+    r = [x for x in json.loads(p.stdout)["commits"] if x["subject"] == "Fix total rounding"][0]
+    assert r["result"] == "noticed", r

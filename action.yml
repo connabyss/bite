@@ -9,7 +9,7 @@ inputs:
     description: Extra options for bite (see bite --help), e.g. --serious.
     default: ""
   max-commits:
-    description: Check at most this many of the pull request's commits (each one runs the tests twice).
+    description: Check at most this many of the pull request's commits (each one runs the tests at least twice).
     default: "20"
   fail-on-gap:
     description: Fail the check when a commit's change is not guarded by any test.

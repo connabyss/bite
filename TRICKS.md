@@ -38,6 +38,8 @@ per function it touched, up to 6). A piece no test notices on its own is named. 
 pieces only count together and Bite says nothing new. This costs one more test run per piece, only for commits a
 test noticed. When test files were deleted after a noticed commit, Bite also takes the change out of today's
 code and runs today's tests (two more runs, only then). A piece that only changes a docstring or type hint isn't named on its own.
+To keep runs quick, the piece check gets 6 test runs for a whole Bite run (`--part-runs N` changes that), and
+`bite --quick` skips it, the flaky-test rerun and the deleted-test check.
 
 To check this doesn't add false alarms, we ran the new and the old Bite on Bite's own last 10 code commits. With
 Bite's full test suite, every piece of every commit was noticed, the same 10 of 10 as before.

@@ -21,3 +21,6 @@ jobs:
       # Only the test runner: Bite is installed on its own by the action, so the tests import each copy's code.
       - run: python -m pip install pytest
       - uses: ./
+        with:
+          # Bite's own tests take over a minute a run: a smaller piece-check budget keeps this check near 5 minutes.
+          args: --part-runs 2
