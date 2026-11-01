@@ -100,3 +100,12 @@ def test_a_fix_its_own_unit_test_notices_is_noticed(tmp_path):
     recent.extras(root, cfg)
     assert recent.undo_check(root, c, cfg) == "guarded"
     assert "rounds" in c["caught"]
+
+
+def test_test_modules_are_found_once_per_file(monkeypatch):
+    # Looking them up again for every line made the free pass on tokio-rs/bytes 6x slower.
+    calls = []
+    real = recent.rust_test_spans
+    monkeypatch.setattr(recent, "rust_test_spans", lambda lines: calls.append(1) or real(lines))
+    assert not recent.rust_code_same(OLD.encode(), NEW.encode())
+    assert len(calls) == 2
