@@ -695,6 +695,75 @@ def doc_example_catches(root: Path, c: dict, folder: Path, fcfg) -> bool:
     return bool(names)
 
 
+def runs_doctests(cfg, folder: Path) -> bool:
+    """The tests run Python doctests: the examples in docstrings (pytest --doctest-modules, on the test command or
+    in the project's pytest settings)."""
+    if "--doctest-modules" in (cfg.test_cmd or "") + " " + (getattr(cfg, "free_cmd", "") or ""):
+        return True
+    for name in ("pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini"):
+        f = Path(folder) / name
+        if f.is_file() and "--doctest-modules" in f.read_text(encoding="utf-8", errors="replace"):
+            return True
+    return False
+
+
+def doc_lines(src: bytes) -> set:
+    """The lines (counted from 0) that are docstrings in a Python file; empty when it doesn't parse."""
+    try:
+        tree = ast.parse(src or b"")
+    except (SyntaxError, ValueError):
+        return set()
+    out = set()
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if (isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and body
+                and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant)
+                and isinstance(body[0].value.value, str)):
+            out |= set(range(body[0].lineno - 1, body[0].end_lineno))
+    return out
+
+
+def doctest_catches(root: Path, c: dict, folder: Path, fcfg) -> bool:
+    """Python's answer to Rust's doc examples: when the tests run doctests, put the commit's code back the way it
+    was but keep the docstrings it wrote. Does an example in them fail? Only a failing check counts (a file that
+    won't load says nothing)."""
+    if not runs_doctests(fcfg, folder):
+        return False
+    before = c.get("before") or f"{c['sha']}^"
+    changed = False
+    for rel in c["code"]:
+        if Path(rel).suffix.lower() != ".py":
+            continue
+        old = repo.git(root, "cat-file", "blob", f"{before}:{c.get('moved', {}).get(rel, rel)}", raw=True)
+        new = repo.git(root, "cat-file", "blob", f"{c['sha']}:{rel}", raw=True)
+        if old is None or new is None:
+            continue
+        da, db = doc_lines(old), doc_lines(new)
+        a = old.decode("utf-8", "replace").splitlines(keepends=True)
+        b = new.decode("utf-8", "replace").splitlines(keepends=True)
+        out, docs = [], False
+        for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+            if op == "equal":
+                out += b[j1:j2]
+                continue
+            # The commit's docstring lines stay; its code lines go back to the old ones. A docstring opens its
+            # function, so its lines go first.
+            new_docs = [b[j] for j in range(j1, j2) if j in db]
+            docs = docs or bool(new_docs)
+            out += new_docs + [a[i] for i in range(i1, i2) if not (new_docs and i in da)]
+        if not docs:
+            continue  # it changed no docstring
+        bite.safe_write(folder, folder / rel, "".join(out).encode())
+        changed = True
+    if not changed:
+        return False
+    run = bite.run_tests(fcfg, folder)
+    if run["ok"] or bite.load_failure(run["out"]):
+        return False
+    c["caught"] = caught_by(run["out"]) or "a doctest"
+    return True
+
+
 def lines_back(diff: bytes) -> bool:
     """Every hunk of this diff removes a line distinctive enough (10+ characters) to be looked for without its
     context: a closing bracket or a blank line could match anywhere."""
@@ -874,8 +943,8 @@ def check_undo(root: Path, c: dict, cfg) -> str:
             if closed_since(root, c, cfg):
                 return "closed since: today's tests catch it"
             return "TEST GUARDS NOTHING" if c.get("test_code") else "unguarded"
-        if undone["ok"] and doc_example_catches(root, c, folder, fcfg):
-            return "guarded"  # by a doc example the commit wrote (Rust runs those as tests)
+        if undone["ok"] and (doc_example_catches(root, c, folder, fcfg) or doctest_catches(root, c, folder, fcfg)):
+            return "guarded"  # by a doc example the commit wrote (Rust runs those as tests, pytest when told to)
         if undone["ok"]:
             return flag()
         crashed = bite.load_failure(undone["out"])
