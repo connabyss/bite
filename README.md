@@ -318,6 +318,40 @@ checks (`--since`) aren't remembered, since they look at different commits.
 Each run also saves `bite_proof/badge.json` in [shields.io's endpoint format](https://shields.io/badges/endpoint-badge),
 so a badge can follow your newest run wherever you publish that file.
 
+**A badge that keeps itself up to date (the Action, opt-in; new since v0.11.0, so it needs the next release):** on every push to main, Bite checks your newest commits
+and keeps the score on a branch of its own, `bite-badge`, which holds only `badge.json`. Add this as
+`.github/workflows/bite-badge.yml`:
+
+```yaml
+name: bite-badge
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write        # only for the bite-badge branch
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # install what your tests need here, as in the pull request check
+      - uses: connabyss/bite@v0.11.0
+        with:
+          badge-branch: bite-badge
+          max-commits: 10
+```
+
+The job's summary page then shows the badge line for your README (put your own owner/repo in it):
+
+```
+[![Bite score](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FOWNER%2FREPO%2Fbite-badge%2Fbadge.json)](https://github.com/connabyss/bite)
+```
+
+Bite makes the branch on the first run, and never touches a branch that holds anything else. On a push run the check
+never fails; it only updates the badge.
+
 Prefer a gentler wording for the warnings? `bite --roast` gives the same results, phrased differently.
 
 In a hurry? `bite --quick` checks each change with two test runs, as older versions did: it skips the piece-by-piece
