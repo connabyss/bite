@@ -65,8 +65,7 @@ bite --free
 `bite` now works in any terminal window. `bite --free` needs no key and costs nothing. It takes each recent
 change back out, runs your tests, and lists the changes no test guards, plus any new test that still passes
 without its commit's code (it tests nothing). If something it needs is missing, like git or pytest, it says
-so and gives you the line that installs it. Each run ends with a one-page report, `bite_proof/report.html`, to open in your browser. To update Bite later: `pipx upgrade bite-check` (if it warns that `bite.exe` or `bite` "does not match" and
-won't change it, an older copy is in the way: `pipx install --force bite-check` replaces it).
+so and gives you the line that installs it. Each run ends with a one-page report, `bite_proof/report.html`, to open in your browser. To update Bite later, see [Updating Bite](#updating-bite).
 
 To test the claims themselves (the paid step), add one extra package and set `ANTHROPIC_API_KEY`, then run `bite`:
 
@@ -80,6 +79,21 @@ https://code.claude.com/docs/en/agent-sdk/overview). The commits Bite checks can
 
 Works with pytest, npm test, cargo test, go test, dotnet test, Maven and Gradle. Settings and limits: [AGENTS.md](https://github.com/connabyss/bite/blob/main/AGENTS.md),
 written so your coding AI (Claude Code, Codex, Cursor, Copilot) can set Bite up for you. To work on Bite itself: clone it, `pip install -e .[test]`, then `python -m pytest`.
+
+## Updating Bite
+
+`bite --version` prints your version, and when a newer one is out it says so and gives you the line to paste.
+That line always gets the newest version:
+
+```
+pipx install --force bite-check --pip-args="--no-cache-dir"
+```
+
+Installed with pip instead of pipx? `python -m pip install --upgrade --no-cache-dir bite-check`
+
+Why not just `pipx upgrade bite-check`? Right after a release, pip can keep using the list of versions it saved
+earlier and say you're already on the latest. `--no-cache-dir` makes it ask PyPI fresh, and `--force` also replaces
+an older `bite` or `bite.exe` that's in the way.
 
 ## Check Claude's "fixed" live, in Claude Code
 
@@ -118,7 +132,7 @@ command when the AI stops (it reads Claude Code's Stop hook JSON).
 `bite mcp` gives your coding AI the same free check as a tool it can call, `check_fix`, through MCP, the plug most
 coding AIs share. Its description tells the AI to call it after fixing a bug and before saying "fixed". If no test
 notices the change, the AI is told to add one that fails without it. No API key; it works in a copy, so your files
-are never touched. It needs Bite 0.8.0 or newer (`pipx upgrade bite-check`).
+are never touched. It needs Bite 0.8.0 or newer ([Updating Bite](#updating-bite)).
 
 Add it once, in the place your coding AI keeps its MCP servers:
 
