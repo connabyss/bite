@@ -37,7 +37,8 @@ bite --free
 - The project's own test runner (e.g. pytest) must be installed in the environment its tests run in, or Bite
   stops and prints the install line.
 - Every run ends with a one-page report, `bite_proof/report.html`, to open in a browser.
-- Upgrade: `pipx upgrade bite-check`.
+- Upgrade: `pipx upgrade bite-check`. If pipx warns the `bite` command "does not match" and won't change it,
+  `pipx install --force bite-check` replaces the old copy.
 
 ## What `bite` does (same as `python recent.py`)
 
