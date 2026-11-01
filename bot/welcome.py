@@ -23,7 +23,7 @@ APP_ID = "5545588"
 APP_LOGIN = "bite-check[bot]"
 MARK = "<!-- bite-welcome -->"
 HOME = "connabyss/bite"
-VERSION = "v0.9.0"
+VERSION = "v0.10.0"
 # An install on many repos at once (say "All repositories" on a big account) gets no issues at all, so the bot never
 # floods anyone. They can install it again on the repos they want.
 MAX_REPOS = 10
