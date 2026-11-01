@@ -1022,10 +1022,11 @@ def owner(lines: list, at_line: int) -> str:
     return ""
 
 
-def parts(root: Path, c: dict) -> list:
+def parts(root: Path, c: dict, most: int = 0) -> list:
     """The commit's code change in pieces: one per function or class it touched in each file (a file it created is
     one piece; a file it deleted is none). Each piece is (file, name, the file with only that piece taken out, or
-    None for a file the commit created)."""
+    None for a file the commit created). With most, it stops once it has found more pieces than that: a change to
+    a big generated file can touch hundreds of functions, and building each piece reads the whole file again."""
     before = c.get("before") or f"{c['sha']}^"
     out = []
     for rel in c["code"]:
@@ -1055,6 +1056,8 @@ def parts(root: Path, c: dict) -> list:
             # docstrings: an untested --help text isn't worth a flag of its own.
             if not same_code(new, undone, Path(rel).suffix.lower(), reads=False):
                 out.append((rel, name, undone, (a, b, ops)))
+                if most and len(out) > most:
+                    return out
     return out
 
 
@@ -1092,7 +1095,7 @@ def unnoticed_part(root: Path, c: dict, folder: Path, fcfg) -> list:
     so that says nothing either."""
     if QUICK[0]:
         return []
-    ps = parts(root, c)
+    ps = parts(root, c, most=MAX_PARTS)
     if not 2 <= len(ps) <= min(MAX_PARTS, PART_RUNS[0]):
         if len(ps) > PART_RUNS[0] and 2 <= len(ps) <= MAX_PARTS:
             c["parts_skipped"] = len(ps)

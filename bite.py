@@ -773,8 +773,23 @@ def code_lines(text: str, suffix: str) -> list:
     so a change inside one (a colour "#fff", a URL "http://") counts as code."""
     longs = sorted(LONG_QUOTES.get(suffix, ()), key=len, reverse=True)
     hash_ = suffix in HASH_COMMENTS
+    # Runs of characters that can't start a string, a comment or a new line are copied in one go: a big generated
+    # file read a character at a time took seconds.
+    plain = re.compile("[^" + re.escape("\n'\"`" + "".join(q[0] for q in longs) + ("#" if hash_ else "/")) + "]+")
+    inside = {}
     out, cur, quote, i, n = [], [], "", 0, len(text)
     while i < n:
+        if quote:
+            if quote not in inside:
+                stop = "\n" + quote[0] + ("" if quote == "`" and suffix == ".go" else "\\")
+                inside[quote] = re.compile("[^" + re.escape(stop) + "]+")
+            m = inside[quote].match(text, i)
+        else:
+            m = plain.match(text, i)
+        if m:
+            cur.append(m.group())
+            i = m.end()
+            continue
         c = text[i]
         if c == "\n":
             out.append("".join(cur))
