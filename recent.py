@@ -25,8 +25,8 @@ Bite: did your coding agent's recent "done" commits really do what they said?
     (from a clone without installing: python recent.py, python recent.py --free, ...)
 
 Step 1 (free): for each commit that changed code, the change is taken back out and the tests are run. If they
-still pass, no test shows the change does anything ("unguarded"). If the commit added or changed tests and
-those still pass without its code change, they test nothing it did ("TEST GUARDS NOTHING"). Commits that
+still pass, no test shows the change does anything ("NO TEST NOTICED"). If the commit added or changed tests and
+those still pass without its code change, they test nothing it did ("ITS TESTS DIDN'T NOTICE"). Commits that
 claim a fix come first.
 Step 2 (API key, spending capped by --budget): for the top suspects, a fresh worker turns the commit's own claim into one
 small test (with the odd inputs the claim covers) on a copy of the project at that commit. Bite then runs the
@@ -38,7 +38,7 @@ failing test plus the command that runs it.
 --write-tests (API key, capped by --budget): for each change no test noticed, a fresh worker writes the test that's
 missing, on a copy at that commit. Bite runs it itself and keeps it only if it passes twice with the change in,
 fails with the change taken out, and a second fresh check calls it fair. It's shown ready to paste in (and in the pull request comment). Instead of step 2.
-Settings: .bite.ini in the repo (optional; first line [kit], then test_command = ...). claim_command runs one
+Settings: .bite.ini in the repo (optional; first line [bite], then test_command = ...). claim_command runs one
 test file ({file}); without it Bite adds the file to test_command (for dotnet test it adds a --filter instead).
 test_covers = the paths the test command can reach (globs, comma-separated, e.g. Assets/Sim/*, tests/*): commits
 that touch none of them are listed as outside the tests' reach, not checked. Code in a language the test command
@@ -411,10 +411,37 @@ def keep_docs(old: bytes, new: bytes) -> bytes | None:
         # above the code it documents, so the doc lines before the chunk's first code line go first.
         first = next((k for k, ln in enumerate(news) if not is_rust_doc(ln)), len(news))
         out += [ln for ln in news[:first] if is_rust_doc(ln)]
+        code = [ln for ln in olds if not is_rust_doc(ln) and ln.strip()]
+        if first and not code:
+            # The commit added a whole new item. Its docs would now sit on top of whatever item comes next, and
+            # cargo would name the example after that one: a stand-in with the same name keeps it apart.
+            out += stand_in(news[first:], a[:i1])
         out += [ln for ln in olds if not is_rust_doc(ln)]
         out += [ln for ln in news[first:] if is_rust_doc(ln)]
     kept = "".join(out).encode()
     return None if kept == old else kept
+
+
+RUST_ITEM = re.compile(r"^(\s*)(?:pub(?:\([^)]*\))?\s+)?(?:(?:const|async|unsafe|extern(?:\s+\"[^\"]*\")?)\s+)*"
+                       r"(?:fn|struct|enum|union|trait|type|const|static(?:\s+mut)?)\s+([A-Za-z_]\w*)")
+
+
+def stand_in(code: list, above: list) -> list:
+    """An item for a taken-out item's docs to sit on, named like it, so cargo names its example after it. It's a
+    const holding (), which the example can't use as the real thing. None in a trait impl (it can only hold the
+    trait's own items) or when the item's name can't be read."""
+    first = next((ln for ln in code if ln.strip() and not ln.lstrip().startswith("#[")), "")
+    m = RUST_ITEM.match(first)
+    if not m:
+        return []
+    pad = m.group(1)
+    for ln in reversed(above):  # the block the item sits in: the nearest line indented less than it
+        if ln.strip() and len(ln) - len(ln.lstrip()) < len(pad):
+            if re.match(r"\s*(?:unsafe\s+)?impl\b.*\bfor\b", ln) or re.match(r"\s*(?:pub\s+)?(?:unsafe\s+)?extern\b", ln):
+                return []
+            break
+    nl = "\r\n" if first.endswith("\r\n") else "\n"
+    return [f"{pad}#[allow(dead_code, non_upper_case_globals)]{nl}", f"{pad}const {m.group(2)}: () = ();{nl}"]
 
 
 # cargo test's name for a doc example: "src/lib.rs - Thing::method (line 12)"
@@ -1184,7 +1211,7 @@ def make_demo(dest: Path) -> Path:
         subprocess.run([*git, "commit", "-q", "-m", subject], cwd=dest, check=True, capture_output=True, env=env)
     # The tests run with the Python Bite runs on, so the demo needs nothing else installed. Left out of the
     # commits: its path differs on every machine.
-    (dest / ".bite.ini").write_text(f'[kit]\ntest_command = "{sys.executable}" -m unittest\n', encoding="utf-8")
+    (dest / ".bite.ini").write_text(f'[bite]\ntest_command = "{sys.executable}" -m unittest\n', encoding="utf-8")
     (dest / ".git" / "info" / "exclude").write_text(".bite.ini\n", encoding="utf-8")
     return dest
 
@@ -1219,7 +1246,7 @@ def extras(root: Path, cfg) -> list:
     import configparser
     cp = configparser.ConfigParser(interpolation=None)
     cp.read(ini, encoding="utf-8")
-    kit = cp["kit"] if "kit" in cp else {}
+    kit = bite.settings_section(cp)
     cfg.claim_cmd = kit.get("claim_command", "").strip()
     cfg.free_cmd = kit.get("free_test_command", "").strip()
     return [g.strip().replace("\\", "/") for g in kit.get("test_covers", "").split(",") if g.strip()]
