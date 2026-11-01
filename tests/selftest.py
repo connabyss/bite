@@ -642,7 +642,7 @@ c2 = {"sha": "b" * 40, "subject": "two"}
 newest_fails = recent.write_comment(root, [dict(c1, undo="tests fail at this commit", why="NameError: x"),
                                            dict(c2, undo="guarded")], newest=c1["sha"]).read_text(encoding="utf-8")
 check("comment: tests failing on the newest commit lead with a red verdict and say fix them first",
-      f"### {recent.CAT} ❌ Bite: your tests already fail" in newest_fails and "fix them first" in newest_fails and "NameError: x" in newest_fails)
+      f"### {recent.CAT} ❌ Bite: your tests fail" in newest_fails and "fix what fails" in newest_fails and "**What failed:** `NameError: x`" in newest_fails)
 older_fails = recent.write_comment(root, [dict(c1, undo="tests fail at this commit"), dict(c2, undo="guarded")],
                                    newest=c2["sha"]).read_text(encoding="utf-8")
 check("comment: tests that failed only on an older commit don't decide the verdict",
