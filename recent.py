@@ -1448,6 +1448,40 @@ def bite_proof(kinds: list, tried: list = ()) -> bool:
     return "held" in kinds and set(kinds) <= {"held", "skip"} and not any(r.get("status") == "FALSE DONE" for r in tried)
 
 
+def score(kinds: list) -> tuple[int, int]:
+    """The Bite score: of the changes Bite could ask its question about, how many a test noticed. Skipped ones,
+    failing tests and "no tests found" don't count either way. (noticed, out of); out of is 0 when none counted."""
+    counted = [k for k in kinds if k in ("held", "gap", "odd", "back")]
+    return counted.count("held"), len(counted)
+
+
+def score_color(n: int, total: int) -> str:
+    """shields.io colour for a score: green when every change was noticed, then yellow-green, yellow, orange, red."""
+    r = n / total if total else 0
+    return "brightgreen" if n == total else "yellowgreen" if r >= .75 else "yellow" if r >= .5 else "orange" if r >= .25 else "red"
+
+
+def score_badge(n: int, total: int) -> str:
+    """A README badge with the score, like the Bite-proof one: "Bite score | 7/9 noticed"."""
+    from urllib.parse import quote
+    msg = quote(f"{n}/{total} noticed", safe="").replace("-", "--")
+    return (f"[![Bite score: {n} of {total} changes noticed by a test](https://img.shields.io/badge/Bite%20score-{msg}-"
+            f"{score_color(n, total)})](https://github.com/connabyss/bite)")
+
+
+def write_badge(root: Path, sc: dict | None) -> Path | None:
+    """bite_proof/badge.json, in shields.io's endpoint format, so a badge can follow the newest run (README:
+    Bite score badge). sc is results()'s "score"; with none (nothing counted), an old badge.json is removed."""
+    p = proof_dir(root) / "badge.json"
+    if not sc:
+        p.unlink(missing_ok=True)
+        return None
+    n, total = sc["noticed"], sc["out_of"]
+    p.write_text(json.dumps({"schemaVersion": 1, "label": "Bite score", "message": f"{n}/{total} noticed",
+                             "color": score_color(n, total)}) + "\n", encoding="utf-8")
+    return p
+
+
 def flat(text: str) -> str:
     """say()'s sentence without its Markdown, for the terminal and the report page."""
     return re.sub(r"\[([^]]+)\]\([^)]+\)", r"\1", text).replace("**", "").replace("`", "")
@@ -1493,6 +1527,21 @@ def write_html(root: Path, cs: list, tried: list, seconds: float) -> Path:
         tiles.insert(3, (kinds.count("back"), "undone by a later commit", "odd"))
     if tried:
         tiles.append((len(false_done), f"false \"done\" of {len(tried)} claims tested", "odd"))
+    n, total = score(kinds)
+    ring = ""
+    if total:  # the score as a ring: the green part is the share of changes a test noticed
+        arc = 2 * 3.14159 * 42
+        ring = (f'<div class="score {"held" if n == total else "gap"}"><svg viewBox="0 0 100 100" width="104" height="104" role="img" aria-label="Bite score '
+                f'{n} of {total}"><circle cx="50" cy="50" r="42" class="track"/><circle cx="50" cy="50" r="42" class="arc" '
+                f'stroke-dasharray="{arc * n / total:.1f} {arc:.1f}" transform="rotate(-90 50 50)"/>'
+                f'<text x="50" y="49" class="big">{n}/{total}</text><text x="50" y="66" class="small">noticed</text></svg>'
+                f'<div><b>Bite score: {n} of {total}</b><br>'
+                + ("Every change Bite could check had a test that noticed it." if n == total else
+                   f"{total - n} change{'' if total - n == 1 else 's'} could wander off and no test would say a word."
+                   if ROAST[0] else f"No test noticed any of the {total} changes Bite could check." if n == 0 else
+                   f"A test noticed {n} of the {total} changes Bite could check. The other {total - n} could break "
+                   "quietly.")
+                + f'<div class="why">README badge: <code>{e(score_badge(n, total))}</code></div></div></div>')
     page = f"""<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bite report: {e(root.name)}</title>
 <style>
@@ -1508,11 +1557,15 @@ table{{width:100%;border-collapse:collapse}} td{{padding:8px 6px;border-top:1px 
 td:first-child{{white-space:nowrap}} .dot{{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--skip)}}
 .held .dot{{background:var(--held)}} .gap .dot,.none .dot{{background:var(--gap)}} .odd .dot,.fail .dot,.back .dot{{background:var(--odd)}}
 .why{{color:var(--mute);font-size:13px}} .proof{{border:1px solid var(--held);border-radius:10px;padding:12px 14px}}
-.proof b{{color:var(--held)}} footer{{margin-top:32px;color:var(--mute);font-size:13px}}
+.proof b{{color:var(--held)}} .score{{display:flex;gap:18px;align-items:center;margin:24px 0 0}}
+.score .track{{fill:none;stroke:var(--line);stroke-width:10}} .score .arc{{fill:none;stroke:var(--gap);stroke-width:10;stroke-linecap:round}} .score.held .arc{{stroke:var(--held)}}
+.score .big{{fill:var(--fg);font:700 22px system-ui,sans-serif;text-anchor:middle}} .score .small{{fill:var(--mute);font:12px system-ui,sans-serif;text-anchor:middle}}
+.score code{{word-break:break-all}} footer{{margin-top:32px;color:var(--mute);font-size:13px}}
 </style>
 <main>
 <h1><img src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-avatar.png" width="32" height="32" alt="Bite" style="vertical-align: middle; margin-right: 8px;"> Bite report: {e(root.name)}</h1>
 <div class="sub">{datetime.now():%Y-%m-%d %H:%M} &middot; did the recent "fixed" commits hold? &middot; {seconds:.0f}s, ${SPENT[0]:.2f}</div>
+{ring}
 {f'<p class="proof"><b>Bite-proof. Nice work.</b> Every change Bite checked had a test that noticed it. Badge for your README:<br><code>{e(BADGE)}</code></p>' if bite_proof(kinds, tried) else ""}
 <div class="tiles">{"".join(f'<div class="tile {k}"><b>{n}</b>{e(t)}</div>' for n, t, k in tiles)}</div>
 {f'<h2>Claims tested</h2><table>{claims}</table>' if tried else ""}
@@ -1620,6 +1673,9 @@ def write_comment(root: Path, cs: list, none: str = "", error: str = "", newest:
         url = f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{run}"
         lines += ["", f"📥 Or download {'it' if len(wrote) == 1 else 'them all'}, already in the right folder"
                   f"{'' if len(wrote) == 1 else 's'}: **bite-missing-tests** under Artifacts on [this run's page]({url})."]
+    n, out_of = score(kinds)
+    if out_of and not error and "fail" not in kinds and not bite_proof(kinds):
+        lines += ["", f"<sub>Bite score for these commits: **{n}/{out_of}** noticed by a test.</sub>"]
     total, last = os.environ.get("BITE_PR_COMMITS", ""), os.environ.get("BITE_CHECKED_COMMITS", "")
     if total.isdigit() and last.isdigit() and int(total) > int(last) and not error:
         lines += ["", f"Bite looked at the newest {last} of this pull request's {total} commits."]
@@ -1665,8 +1721,12 @@ def results(cs: list, none: str = "", error: str = "", newest: str = "", tried: 
                else "noticed" if "noticed" in kinds else "nothing_checked")
     false_done = [{"sha": r["sha"], "subject": r.get("subject", ""), "bug": r.get("bug", ""), "today": r.get("today", "")}
                   for r in tried if r.get("status") == "FALSE DONE"]
-    return {"schema": 1, "bite": _installed_version(), "outcome": outcome, "message": error or none,
-            "commits": commits, "false_done": false_done}
+    n, total = score([say(c, newest)[0] for c in checked])
+    out = {"schema": 1, "bite": _installed_version(), "outcome": outcome, "message": error or none,
+           "commits": commits, "false_done": false_done}
+    if total and not error:
+        out["score"] = {"noticed": n, "out_of": total, "badge": score_badge(n, total)}
+    return out
 
 
 LAST_RESULTS = [None]  # the results.json this run wrote, for --json
@@ -1674,7 +1734,9 @@ LAST_RESULTS = [None]  # the results.json this run wrote, for --json
 
 def write_results(root: Path, cs: list, none: str = "", error: str = "", newest: str = "", tried: list = ()) -> Path:
     p = proof_dir(root) / "results.json"
-    p.write_text(json.dumps(results(cs, none, error, newest, tried), indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    r = results(cs, none, error, newest, tried)
+    p.write_text(json.dumps(r, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_badge(root, r.get("score"))
     LAST_RESULTS[0] = p
     return p
 
@@ -2129,6 +2191,10 @@ def main(argv=None):
           + f"{len(checked) - len(held) - len(flagged) - len(back)} couldn't be checked or skipped"
           + (f"; {n_out} outside the tests' reach" if n_out else "")
           + (f"; {len(other)} in code your tests can't run" if other else "") + ".")
+    n, total = score([say(c)[0] for c in checked])
+    if total:
+        print(f"Bite score: {n}/{total} (a test noticed {n} of the {total} changes Bite could check)."
+              + (f"\nScore badge for your README: {score_badge(n, total)}" if n < total else ""))
     if bite_proof([say(c)[0] for c in checked], tried):
         print(f"\nBite-proof. Nice work. Every change Bite checked had a test that noticed it.\n"
               f"Badge for your README: {BADGE}")
