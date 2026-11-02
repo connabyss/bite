@@ -41,6 +41,15 @@ def git(root, *args, raw=False):
     return r.stdout if raw else r.stdout.decode("utf-8", "replace").strip()
 
 
+SHALLOW = ("This is a shallow clone (git clone --depth): it holds only the newest commits, and the oldest of them "
+           "has no parent here, so Bite can't see what it changed. Get the whole history with: git fetch --unshallow")
+
+
+def shallow(root: Path) -> bool:
+    """The repository is a shallow clone: its oldest commit's parent wasn't downloaded."""
+    return (git(root, "rev-parse", "--is-shallow-repository") or "") == "true"
+
+
 def repo_root(start) -> Path | None:
     """The top folder of the git repository start is in; None when it isn't in one, or isn't a folder at all."""
     if not isinstance(start, (str, os.PathLike)) or not Path(start).is_dir():

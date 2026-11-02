@@ -2448,13 +2448,16 @@ def main(argv=None):
     newest = cs[0]["sha"] if cs else ""  # git log lists the newest first
     print(f"Bite: {len(cs)} commits changed code in the last {opt('--last', 40)}.", flush=True)
     lang = repo.runs_language(cfg.test_cmd)[0]
+    if cs and repo.shallow(root):
+        print(f"  {repo.SHALLOW}", flush=True)
     if other:
         print(f"  {len(other)} changed only code your tests can't run (they run {lang}), not checked: "
               + ", ".join(c["sha"][:8] for c in other), flush=True)
     if not cs:
-        print("Nothing to check. Try a larger --last.")
+        thin = repo.shallow(root)  # --last can't help: the history isn't there
+        print(f"Nothing to check. {repo.SHALLOW}" if thin else "Nothing to check. Try a larger --last.")
         write_comment(root, [], none=f"The code changed here isn't {lang}, and your tests only run {lang}, so they "
-                                     "can't notice it." if other else "")
+                                     "can't notice it." if other else repo.SHALLOW if thin else "")
         return 0
     n_out = 0
     if covers:  # a change the test command can't reach can't fail a test: that says nothing about the change
