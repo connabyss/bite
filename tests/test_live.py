@@ -143,3 +143,15 @@ def test_the_plugin_runs_these_commands():
     assert "!`bite live" in (KIT / "plugin" / "commands" / "bite.md").read_text(encoding="utf-8")
     market = json.loads((KIT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
     assert (KIT / market["plugins"][0]["source"] / ".claude-plugin" / "plugin.json").is_file()
+
+
+def test_unknown_live_option_errors_and_names_valid_options(capsys):
+    assert live.main(["--bogus"]) == 1
+    out = capsys.readouterr().out
+    assert "unknown option '--bogus'" in out
+    assert "--since REF" in out and "--hook" in out
+
+
+def test_unknown_option_after_a_valid_option_also_errors(capsys):
+    assert live.main(["--since", "HEAD", "--bogus"]) == 1
+    assert "unknown option '--bogus'" in capsys.readouterr().out
