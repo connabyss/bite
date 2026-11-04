@@ -2924,15 +2924,18 @@ def main(argv=None):
         write_comment(root, [], error=f"Bite couldn't find {since} (--since) in this repository.")
         return 1
     t0 = time.time()
-    cs = commits(root, opt("--last", 40), since)  # --all is still accepted: every commit is the default now
+    asked = opt("--last", 40)
+    cs = commits(root, asked, since)  # --all is still accepted: every commit is the default now
     seen = len(cs)
+    whole = not since and seen < asked  # git had fewer commits than asked for
     top = cs[0]["sha"] if cs else ""  # the newest commit of all, even one that changed no code
     for c in cs:
         files_of(root, c, cfg)
     other = [c for c in cs if c["other_lang"] and not c["code"]]
     cs = [c for c in cs if c["code"]]
     newest = cs[0]["sha"] if cs else ""  # git log lists the newest first
-    print(f"Bite: {len(cs)} commits changed code in the last {opt('--last', 40)}.", flush=True)
+    print(f"Bite: {len(cs)} commits changed code in all {seen} commits." if whole else
+          f"Bite: {len(cs)} commits changed code in the last {asked}.", flush=True)
     lang = repo.runs_language(cfg.test_cmd)[0]
     if cs and repo.shallow(root):
         print(f"  {repo.SHALLOW}", flush=True)
@@ -2941,7 +2944,6 @@ def main(argv=None):
               + ", ".join(c["sha"][:8] for c in other), flush=True)
     if not cs:
         thin = repo.shallow(root)  # --last can't help: the history isn't there
-        whole = not since and seen < int(opt("--last", 40))  # git had fewer commits than asked for
         print(f"Nothing to check. {repo.SHALLOW}" if thin else
               f"Nothing to check: that was every commit in this repository ({seen}), and none changed code your "
               f"tests run ({lang}). Make a change with a test, commit it, and run Bite again." if whole else
