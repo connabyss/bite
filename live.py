@@ -228,10 +228,27 @@ def hook(data: dict) -> dict:
     return out
 
 
+VALID_OPTIONS = ("--since REF", "--hook", "-h, --help")
+
+
 def main(argv: list) -> int:
     if "-h" in argv or "--help" in argv:
         print(__doc__.strip())
         return 0
+    # Unknown options must fail loudly, never be silently ignored: an
+    # ignored typo (e.g. --sinc) would otherwise run the check on the
+    # wrong base while looking like it succeeded.
+    known = {"--hook", "--since"}
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--since":
+            i += 2
+            continue
+        if arg.startswith("-") and arg not in known:
+            print(f"Bite: unknown option '{arg}'. Valid options: {', '.join(VALID_OPTIONS)}.")
+            return 1
+        i += 1
     if "--hook" in argv:
         try:
             with contextlib.redirect_stdout(sys.stderr):  # stdout is for the hook's JSON only
