@@ -453,7 +453,7 @@ with patch.dict(os.environ, {"PYTHONPATH": str(editable)}):
 check("src/ layout: each copy loads its own src/, not an editable install of today's code",
       "NO TEST NOTICED" not in out and "noticed by test_square" in out)
 rc, out = run(root, ["--free", "--last", "1"], fake_worker())
-check("a run that flags nothing says what it verified", "Checked 1 commit: a test noticed 1," in out)
+check("a run that flags nothing says what it verified", "Checked 1 commit: a test noticed 1." in out)
 
 # Noise filters for TEST GUARDS NOTHING (from 7 noise flags on two real repos): another OS, a tidy-up, tests
 # written for other code, and a gap a later commit closed. Each would otherwise be flagged.

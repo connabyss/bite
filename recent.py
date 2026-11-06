@@ -3242,7 +3242,10 @@ def main(argv=None):
     cs = [c for c in cs if c["code"]]
     newest = cs[0]["sha"] if cs else ""  # git log lists the newest first
     last = int(opt("--last", 40))
-    if not since and not only and seen < last and not repo.shallow(root):  # git had fewer commits than asked for
+    if since and not only:  # a branch check: the count is what the branch added, not the last 40
+        span = f"since {since}" if seen < last else f"in the last {last} since {since}"
+        print(f"Bite: {plural(len(cs), 'commit')} changed code {span}.", flush=True)
+    elif not only and seen < last and not repo.shallow(root):  # git had fewer commits than asked for
         print(f"Bite: {plural(len(cs), 'commit')} changed code in all {plural(seen, 'commit')}.", flush=True)
     else:
         print(f"Bite: {plural(len(cs), 'commit')} changed code in the last {last}.", flush=True)
@@ -3480,9 +3483,11 @@ def main(argv=None):
     held = [c for c in checked if c["undo"].startswith(("guarded", "closed since"))]
     if held:  # a newcomer reads "failed" as bad: here it's the result you want
         print("\n✅ means that with the change taken out, a test failed. That's the good result: your tests caught it.")
-    print(f"\nChecked {plural(len(checked), 'commit')}: a test noticed {len(held)}, no test noticed {len(flagged)}, "
-          + (f"undone by a later commit {len(back)}, " if back else "")
-          + f"{len(checked) - len(held) - len(flagged) - len(back)} couldn't be checked or skipped"
+    rest = len(checked) - len(held) - len(flagged) - len(back)
+    parts = [f"{label} {k}" for label, k in (("a test noticed", len(held)), ("no test noticed", len(flagged)),
+                                              ("undone by a later commit", len(back)),
+                                              ("couldn't be checked or skipped", rest)) if k]  # no "0" noise
+    print(f"\nChecked {plural(len(checked), 'commit')}" + (": " + ", ".join(parts) if parts else "")
           + (f"; {n_out} outside the tests' reach" if n_out else "")
           + (f"; {len(other)} in code your tests can't run" if other else "") + ".")
     mw = most_wanted(checked) if len(back + flagged) > 1 else None
