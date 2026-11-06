@@ -143,3 +143,25 @@ def test_the_plugin_runs_these_commands():
     assert "!`bite live" in (KIT / "plugin" / "commands" / "bite.md").read_text(encoding="utf-8")
     market = json.loads((KIT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
     assert (KIT / market["plugins"][0]["source"] / ".claude-plugin" / "plugin.json").is_file()
+
+
+def test_unknown_live_option_errors_and_points_to_help(capsys):
+    assert live.main(["--bogus"]) == 2
+    out = capsys.readouterr().out
+    assert out == "Bite: unknown option '--bogus'. Run bite live --help for the options.\n"
+
+
+def test_unknown_option_after_a_valid_option_also_errors(capsys):
+    assert live.main(["--since", "HEAD", "--bogus"]) == 2
+    assert capsys.readouterr().out == "Bite: unknown option '--bogus'. Run bite live --help for the options.\n"
+
+
+def test_typo_of_since_option_errors_with_exit_code_2(capsys):
+    # The issue's example: --sinse is a typo, not an option.
+    assert live.main(["--sinse", "main"]) == 2
+    assert capsys.readouterr().out == "Bite: unknown option '--sinse'. Run bite live --help for the options.\n"
+
+
+def test_since_with_nothing_after_it_errors_with_exit_code_2(capsys):
+    assert live.main(["--since"]) == 2
+    assert capsys.readouterr().out == "Bite: --since needs a commit or branch after it, like bite live --since main.\n"

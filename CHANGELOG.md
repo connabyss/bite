@@ -3,10 +3,22 @@
 What changed in each Bite release, newest first. Numbers link to the pull request on
 github.com/connabyss/bite. Install or update: `pipx install --force bite-check --pip-args="--no-cache-dir"`.
 
-## Unreleased
+## 1.0.7 (2026-11-06)
 
-- A small easter egg for Hack Week: a commit that says it's fixed "for real this time" (or only "hopefully")
-  gets one extra line saying whether a test agrees. It only reacts to words really in the commit's subject.
+Thanks to [@SatriaBagusNurhadianto](https://github.com/SatriaBagusNurhadianto) and
+[@hamid-digitalmarketer](https://github.com/hamid-digitalmarketer) for their first pull requests, put together
+in #218, and to [@zheng-guannan577](https://github.com/zheng-guannan577) for their first pull request (#193):
+
+- On a repository with fewer commits than `--last`, Bite says "1 commit changed code in all 2 commits." instead
+  of "in the last 999", as if it had looked at 999 (#161). Satria wrote the fix (#162), Hamid wrote its test (#170).
+- `bite live` stops on an option it doesn't know, like `--sinse`, instead of quietly checking the wrong base, and
+  `bite live --since` with nothing after it says what's missing. Both exit 2 (#172, #193).
+- Branch checks (`--since main`, what the GitHub Action runs) say "1 commit changed code since main." instead of
+  "in the last 40", and the totals line lists only the counts that aren't zero (#219).
+- A small Hack Week easter egg: when a commit sounds very sure ("for real this time") or not sure at all
+  ("hopefully"), its free-check result adds one line saying whether a test agrees. It only appears when that line
+  is true, and it never changes the result (#217).
+- The README points to Cold Case Unit, another project by Bite's maintainer (#216).
 
 ## 1.0.6 (2026-11-05)
 
