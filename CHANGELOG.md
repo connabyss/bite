@@ -7,10 +7,12 @@ github.com/connabyss/bite. Install or update: `pipx install --force bite-check -
 
 Thanks to [@SatriaBagusNurhadianto](https://github.com/SatriaBagusNurhadianto) and
 [@hamid-digitalmarketer](https://github.com/hamid-digitalmarketer) for their first pull requests, put together
-in #218:
+in #218, and to [@zheng-guannan577](https://github.com/zheng-guannan577) for their first pull request (#193):
 
 - On a repository with fewer commits than `--last`, Bite says "1 commit changed code in all 2 commits." instead
   of "in the last 999", as if it had looked at 999 (#161). Satria wrote the fix (#162), Hamid wrote its test (#170).
+- `bite live` stops on an option it doesn't know, like `--sinse`, instead of quietly checking the wrong base, and
+  `bite live --since` with nothing after it says what's missing. Both exit 2 (#172, #193).
 - Branch checks (`--since main`, what the GitHub Action runs) say "1 commit changed code since main." instead of
   "in the last 40", and the totals line lists only the counts that aren't zero (#219).
 - A small Hack Week easter egg: when a commit sounds very sure ("for real this time") or not sure at all
