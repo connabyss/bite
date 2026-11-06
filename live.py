@@ -235,7 +235,7 @@ def main(argv: list) -> int:
     # Unknown options must fail loudly, never be silently ignored: an
     # ignored typo (e.g. --sinse) would otherwise run the check on the
     # wrong base while looking like it succeeded. Usage errors exit 2,
-        # like the rest of the CLI (see recent.py).
+    # like the rest of the CLI (see recent.py).
     known = {"--hook", "--since"}
     i = 0
     while i < len(argv):
