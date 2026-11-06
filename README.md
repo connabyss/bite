@@ -92,7 +92,7 @@ jobs:
       # install what your tests need here, e.g. for Python:
       - uses: actions/setup-python@v7
       - run: python -m pip install pytest -r requirements.txt
-      - uses: connabyss/bite@v1.0.6
+      - uses: connabyss/bite@v1.0.7
 ```
 
 **The paid step (optional).** With your own Anthropic API key, Bite writes one small test of a commit's exact

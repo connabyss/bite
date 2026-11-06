@@ -16,6 +16,10 @@ Thank you to everyone who has helped make Bite. 💻 code, 📖 docs, 🚇 Bite'
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/hrithiksaini99"><img src="https://avatars.githubusercontent.com/u/49943287?v=4?s=80" width="80px;" alt="hrithiksaini99"/><br /><sub><b>hrithiksaini99</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=hrithiksaini99" title="Code">💻</a> <a href="https://github.com/connabyss/bite/commits?author=hrithiksaini99" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/phsecx"><img src="https://avatars.githubusercontent.com/u/245661236?v=4?s=80" width="80px;" alt="phsecx"/><br /><sub><b>phsecx</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=phsecx" title="Code">💻</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/SatriaBagusNurhadianto"><img src="https://avatars.githubusercontent.com/u/237350863?v=4?s=80" width="80px;" alt="SatriaBagusNurhadianto"/><br /><sub><b>SatriaBagusNurhadianto</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=SatriaBagusNurhadianto" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/hamid-digitalmarketer"><img src="https://avatars.githubusercontent.com/u/341071524?v=4?s=80" width="80px;" alt="hamid-digitalmarketer"/><br /><sub><b>hamid-digitalmarketer</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=hamid-digitalmarketer" title="Code">💻</a></td>
+    </tr>
   </tbody>
 </table>
 

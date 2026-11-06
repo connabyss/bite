@@ -47,7 +47,7 @@ jobs:
         with:
           fetch-depth: 0
       # install what your tests need here, as in the pull request check
-      - uses: connabyss/bite@v1.0.6
+      - uses: connabyss/bite@v1.0.7
         with:
           badge-branch: bite-badge
           max-commits: 10
