@@ -16,6 +16,12 @@ Both found while testing Bite on [Plexito-de/spantruth](https://github.com/Plexi
   commit". Bite sets up to 3 such tests aside, checks with the rest, and says which: "set aside (already failing at
   this commit): test_version". It can't notice anything either way, since it fails with the change still in.
 
+Also:
+
+- `--jobs` beside a test command that already runs the tests side by side (pytest `-n auto`) now says so: the runs
+  fight for the same cores. On Bite's own repo (4 cores, `-n auto`) `--jobs 2` took 22 minutes against 14 one at a
+  time. The slow-run tip no longer suggests `--jobs` there.
+
 ## 1.0.7 (2026-11-06)
 
 Thanks to [@SatriaBagusNurhadianto](https://github.com/SatriaBagusNurhadianto) and

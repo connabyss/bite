@@ -1132,13 +1132,34 @@ def _run_alone(fcfg, folder) -> dict:
             _GATE.notify_all()
 
 
+def own_workers(cmd: str) -> str:
+    """The part of a pytest command that runs the tests side by side by itself (-n auto, -n 4), or ""."""
+    if not PYTEST_RUNNER.search(cmd):
+        return ""
+    m = re.search(r"\s(?:-n|--numprocesses)(?:=|\s+)?(?!-)(\S+)", f" {cmd}")
+    return m[0].strip() if m and m[1] not in ("0", "1") else ""
+
+
+def jobs_clash(cmd: str) -> str:
+    """With --jobs, one line when the test command already runs side by side (pytest -n auto): each commit's run then
+    fights the others for the same cores. On Bite's own repo (4 cores, -n auto, 2026-11-10) --jobs 2 took 22 min
+    against 14 one at a time, and --jobs 3 overloaded the machine until tests timed out. "" otherwise."""
+    own = own_workers(cmd)
+    if JOBS[0] <= 1 or not own:
+        return ""
+    return (f"Heads up: your test command already runs the tests side by side ({own}), so --jobs {JOBS[0]} makes "
+            "each run fight the others for the same cores. That is usually slower, not faster; leave --jobs out, or "
+            f"take {own} out of test_command in .bite.ini.")
+
+
 def slow_tip(secs: float, n: int, cfg) -> str:
     """When each commit took over 3 minutes, one line on what makes the next run faster ("" otherwise)."""
     if secs <= 180 or n < 2 or JOBS[0] > 1:
         return ""
     xdist = " (with pytest-xdist installed, -n auto in test_command runs the tests themselves 4 at a time)" \
         if repo.runs_language(cfg.test_cmd)[0] == "Python" and " -n " not in f" {cfg.test_cmd} " else ""
-    return (f"Tip: each commit took about {round(secs / 60)} minutes. --jobs 4 checks 4 at a time; --shard 1/4 to "
+    jobs = "" if own_workers(cfg.test_cmd) else "--jobs 4 checks 4 at a time; "  # they'd fight -n auto for cores
+    return (f"Tip: each commit took about {round(secs / 60)} minutes. {jobs}--shard 1/4 to "
             f"4/4 splits the check across 4 machines; free_test_command in .bite.ini can point at a faster subset{xdist}.")
 
 
@@ -3439,6 +3460,9 @@ def main(argv=None):
     if JOBS[0] > 1 and len(todo) > 1:
         from concurrent.futures import ThreadPoolExecutor, as_completed
         print(f"  {min(JOBS[0], len(todo))} at a time (--jobs)", flush=True)
+        clash = jobs_clash(bite.tests_cmd(cfg))
+        if clash:
+            print(f"  {clash}", flush=True)
         with ThreadPoolExecutor(JOBS[0]) as pool:
             futs = {pool.submit(undo_check, root, c, cfg): c for c in todo}
             for f in as_completed(futs):

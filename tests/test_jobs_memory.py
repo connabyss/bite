@@ -231,3 +231,26 @@ def test_no_still_working_line_after_the_step_ends(monkeypatch, capsys):
     capsys.readouterr()
     t.sleep(0.4)
     assert "still working" not in capsys.readouterr().out
+
+
+def test_jobs_beside_a_test_command_that_is_already_parallel_gets_a_warning():
+    """Bite's own repo (4 cores, pytest -n auto, 2026-11-10): --jobs 2 took 22 min against 14 one at a time, and
+    --jobs 3 overloaded the machine until tests timed out. So --jobs beside -n auto says so, and the slow-run tip
+    stops suggesting --jobs there."""
+    sys.path.insert(0, str(KIT))
+    import recent
+    from types import SimpleNamespace
+    saved = recent.JOBS[0]
+    try:
+        recent.JOBS[0] = 3
+        warn = recent.jobs_clash("python -m pytest -q -n auto -p no:cacheprovider")
+        assert "-n auto" in warn and "--jobs 3" in warn and "slower" in warn
+        assert recent.jobs_clash("python -m pytest -q --numprocesses=4") != ""
+        assert recent.jobs_clash("python -m pytest -q -n 0") == ""  # -n 0: xdist off, one process
+        assert recent.jobs_clash("python -m pytest -q") == ""
+        assert recent.jobs_clash("npm test -- -n auto") == ""  # not pytest's -n
+        recent.JOBS[0] = 1
+        assert recent.jobs_clash("python -m pytest -n auto") == ""  # no --jobs, nothing to fight
+    finally:
+        recent.JOBS[0] = saved
+    assert "--jobs" not in recent.slow_tip(600, 5, SimpleNamespace(test_cmd="python -m pytest -n auto"))

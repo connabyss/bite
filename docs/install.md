@@ -61,6 +61,8 @@ Bite runs your tests several times for each change, so a slow test suite makes a
 
 - `bite --free --jobs 4` checks 4 changes at a time. If two checks get in each other's way (a shared file, a port),
   Bite runs the failed one again on its own before it counts, so a clash never shows up as a result.
+  Skip it when your test command already runs the tests side by side (pytest `-n auto`): the checks then fight
+  for the same cores and get slower, and Bite says so.
 - Bite remembers the changes it checked with ✅ in `bite_proof/checked.json`, and skips them next time when the
   settings and dependency files (requirements.txt, package-lock.json, go.sum, ...) are the same. Bite checks each
   change on a copy of its own commit, so tests added or changed later don't undo a ✅; a test file deleted since,
