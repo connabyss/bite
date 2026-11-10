@@ -1237,6 +1237,10 @@ def check_undo(root: Path, c: dict, cfg) -> str:
             doing(c, "the tests failed with nothing taken out: running them once more, in case that was luck...")
             again = run_tests(fcfg, folder, alone=True)
             now = again if again["ok"] else now
+        if not now["ok"]:
+            aside = set_aside(root, c, fcfg, folder, now)
+            if aside:
+                fcfg, now = aside
         keep_output(root, c, "the tests with the change in", now)
         if not now["ok"]:
             c["why"] = fail_why(now)
@@ -1314,6 +1318,59 @@ def check_undo(root: Path, c: dict, cfg) -> str:
             c["hang"] = hung
             return "guarded (tests hang without it)"
         return "guarded" if not crashed else "guarded (tests use the new code)"
+    finally:
+        shutil.rmtree(folder.parent, ignore_errors=True)
+
+
+MAX_ASIDE = 3  # more tests than this failing with nothing taken out: the commit itself is broken, not a stray test
+
+
+def set_aside(root: Path, c: dict, fcfg, folder: Path, now: dict):
+    """(fcfg, run) with the few tests that fail with nothing taken out deselected, when the rest then pass; else None.
+    A test that fails with the change in can't notice it being taken out, so it only cost the commit its check:
+    spantruth's `version("spantruth") == __version__` read the installed copy's version (newer) on every old commit,
+    and Bite skipped all of them. pytest only; only tests whose file is the same today and that pass there; not when
+    a file failed to load or a commit's own test is among them."""
+    cmd = bite.tests_cmd(fcfg)
+    if not PYTEST_RUNNER.search(cmd) or ONE_COMMAND.search(cmd) or fcfg.contain or now.get("hung") \
+            or now["out"].startswith("not run:") or bite.load_failure(now["out"]):
+        return None
+    ids = list(dict.fromkeys(FAILED_ID.findall(now["out"])))
+    if not ids or len(ids) > MAX_ASIDE or not re.search(r"\b\d+ passed\b", now["out"]):
+        return None
+    own = {t.replace("\\", "/") for t in c.get("test_code", [])}
+    if any(i.split("::")[0] in own for i in ids):
+        return None  # the commit's own test: deselecting it would hide the very thing Bite checks
+    files = sorted({i.split("::")[0] for i in ids})
+    if (repo.git(root, "diff", "--name-only", c["sha"], "HEAD", "--", *files) or "").strip():
+        return None  # their test file was changed since: the test itself may have been the broken part, fixed later
+    if not pass_today(root, fcfg, cmd, ids):
+        return None  # they fail on today's code too: the tests are broken, and Bite says so (not a stray old test)
+    sub = at(fcfg, folder)
+    sub.test_cmd = cmd + "".join(f' --deselect "{i}"' for i in ids)
+    sub.box_test_cmd = ""
+    doing(c, f"{len(ids)} test{'s' if len(ids) > 1 else ''} failed with nothing taken out: setting "
+             f"{'them' if len(ids) > 1 else 'it'} aside and running the rest...")
+    run = run_tests(sub, folder, alone=True)
+    if not run["ok"] or ran_nothing(cmd, run["out"]):
+        return None
+    c["set_aside"] = ", ".join(i.split("::")[-1] for i in ids)
+    c["aside_cmd"] = sub.test_cmd  # the rerun recipe in FREE_REPORT.md sets them aside too
+    return sub, run
+
+
+def pass_today(root: Path, cfg, cmd: str, ids: list) -> bool:
+    """Whether just these tests pass on the newest commit (a run of seconds: only them, in one process)."""
+    head = (repo.git(root, "rev-parse", "HEAD") or "").strip()
+    if not head:
+        return False
+    folder = export(root, head, cfg)
+    sub = at(cfg, folder)
+    sub.test_cmd = one_process(pytest_one_file(cmd, " ".join(f'"{i}"' for i in ids), folder))
+    sub.box_test_cmd = ""
+    try:
+        run = run_tests(sub, folder, alone=True)
+        return run["ok"] and not ran_nothing(sub.test_cmd, run["out"])
     finally:
         shutil.rmtree(folder.parent, ignore_errors=True)
 
@@ -1898,11 +1955,20 @@ def pytest_one_file(cmd: str, rel: str, project: Path) -> str:
     keep = toks[:i + 1]
     for t in toks[i + 1:]:
         path = t.strip("\"'")
+        if keep[-1] in PATH_VALUE:  # --deselect tests/x.py::t: the option's own value, not a file to test. Dropped,
+            keep.append(t)          # --deselect took the file Bite added instead, and the commit's own tests never ran
+            continue
         if not t.startswith("-") and (path in (".", "./") or (project / path).exists() or path.endswith(".py")
                                       or "::" in path):
             continue  # a folder or file to test: only this file runs
         keep.append(t)
     return " ".join(keep + [rel])
+
+
+# pytest options whose value (the next word) is a path or test id, not a file to test.
+PATH_VALUE = {"--deselect", "--ignore", "--ignore-glob", "--rootdir", "-c", "--config-file", "--confcutdir",
+              "--basetemp", "--junitxml", "--junit-xml", "--cov", "--cov-config", "--log-file", "--import-mode",
+              "--override-ini", "-o", "-p", "-k", "-m"}
 
 
 def claim_command(cfg, rel: str) -> str:
@@ -2719,6 +2785,8 @@ def results(cs: list, none: str = "", error: str = "", newest: str = "", tried: 
              "label": label.split(" ", 1)[1] if " " in label else label, "detail": flat(text)[2:].strip()}
         if c.get("why"):
             r["why"] = c["why"]
+        if c.get("set_aside"):
+            r["set_aside"] = c["set_aside"]
         if c.get("undone_by"):
             r["undone_by"] = c["undone_by"]
         if (c.get("guard") or {}).get("status") == "WRITTEN":
@@ -2834,7 +2902,7 @@ def write_free(root: Path, cfg, flagged: list) -> Path:
         lines += [f"## {i}. {sha[:8]} {c['subject']}", "", f"- What Bite saw: {say(c)[2][3:]}",
                   f"- Code it changed: {', '.join(c['code'])}", "", "Check it yourself (a throwaway copy; your checkout "
                   "isn't touched):", "", "```", f"git worktree add ../bite_check {sha}", "cd ../bite_check",
-                  *steps, f"{cfg.test_cmd}", "# every test passes: no test noticed the change was gone",
+                  *steps, c.get("aside_cmd") or cfg.test_cmd, "# every test passes: no test noticed the change was gone",
                   f"cd {arg(root.as_posix())}", "git worktree remove --force ../bite_check", "```", "", "Hand this to your coding AI:", "", "```",
                   f"Commit {sha[:8]} (\"{c['subject']}\") changed {', '.join(c['code'])}. With that change undone, "
                   f"the tests still pass ({'its own tests: ' + ', '.join(c['test_code']) if c.get('test_code') else 'no test covers it'}). "
@@ -3339,6 +3407,8 @@ def main(argv=None):
         print(f"  {c['sha'][:8]} {say(c)[1]:<28} {short(c['subject'])}", flush=True)
         if c.get("why"):  # say what broke, so it's clear whether it's the project or the copy
             print(f"           why: {c['why']}", flush=True)
+        if c.get("set_aside"):  # they failed with the change in too, so they couldn't notice it either way
+            print(f"           set aside (already failing at this commit): {c['set_aside']}", flush=True)
         if c["undo"].startswith("guarded") and not c.get("remembered"):
             memo[c["sha"]] = {"key": key, "base": base, "today": bool(c.get("today")), "undo": c["undo"],
                               "caught": c.get("caught", "")}
