@@ -38,3 +38,21 @@ def test_a_written_test_runs_under_pytest_xdist(tmp_path):
     env = {k: v for k, v in os.environ.items() if k != "PYTEST_DISABLE_PLUGIN_AUTOLOAD"}  # this one needs xdist
     p = subprocess.run(cmd.split(), cwd=tmp_path, capture_output=True, text=True, env=env)
     assert p.returncode == 0 and "1 passed" in p.stdout, p.stdout + p.stderr
+
+
+def test_an_option_keeps_a_path_value(tmp_path):
+    """spantruth's command had `--deselect tests/test_x.py::test_slow`: the path was dropped as a file to test, so
+    --deselect took the file Bite added, and the commit's own tests never ran (a false "noticed")."""
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_x.py").write_text("")
+    assert claim(tmp_path, "python -m pytest -q --deselect tests/test_x.py::test_slow --ignore tests/test_x.py tests") \
+        == "python -m pytest -q --deselect tests/test_x.py::test_slow --ignore tests/test_x.py tests/test_bite_claim.py"
+
+
+def test_the_added_file_runs_beside_a_deselect(tmp_path):
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_other.py").write_text("def test_slow():\n    assert True\n")
+    (tmp_path / "tests" / "test_bite_claim.py").write_text("def test_claim():\n    assert False\n")
+    cmd = claim(tmp_path, f"{sys.executable} -m pytest -q -p no:cacheprovider --deselect tests/test_other.py::test_slow tests")
+    p = subprocess.run(cmd.split(), cwd=tmp_path, capture_output=True, text=True)
+    assert "1 failed" in p.stdout and "passed" not in p.stdout, p.stdout + p.stderr  # only the added test ran

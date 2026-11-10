@@ -3,6 +3,19 @@
 What changed in each Bite release, newest first. Numbers link to the pull request on
 github.com/connabyss/bite. Install or update: `pipx install --force bite-check --pip-args="--no-cache-dir"`.
 
+## Unreleased
+
+Both found while testing Bite on [Plexito-de/spantruth](https://github.com/Plexito-de/spantruth):
+
+- A test command with `--deselect tests/x.py::test_slow` (or `--ignore`, `--rootdir` and other options that take a
+  path) no longer swallows the commit's own test file. The path was dropped as "a folder to test", so `--deselect`
+  took the file Bite added instead, the commit's own tests never ran, and Bite could say "noticed" for the wrong
+  reason.
+- A test that fails at an older commit but passes today, in a file that hasn't changed (like a check that the
+  installed package's version matches `__version__`), no longer makes Bite skip that commit as "tests fail at this
+  commit". Bite sets up to 3 such tests aside, checks with the rest, and says which: "set aside (already failing at
+  this commit): test_version". It can't notice anything either way, since it fails with the change still in.
+
 ## 1.0.7 (2026-11-06)
 
 Thanks to [@SatriaBagusNurhadianto](https://github.com/SatriaBagusNurhadianto) and
