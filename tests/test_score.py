@@ -52,3 +52,20 @@ def test_report_and_comment_show_the_score():
     assert "Bite score for these commits: **1/2**" in comment
     # all noticed: the comment already says Bite-proof, so no score line there
     assert "Bite score for these" not in recent.write_comment(root, [c("guarded", caught="`test_x`")]).read_text(encoding="utf-8")
+
+def test_report_badges_have_copy_buttons():
+    root = Path(tempfile.mkdtemp())
+
+    # Test the Bite score badge
+    cs = [c("guarded", caught="`test_x`"), c("unguarded")]
+    page = recent.write_html(root, cs, [], 1.0).read_text(encoding="utf-8")
+
+    expected_score_badge = recent.score_badge(1, 2)
+    assert f'data-copy="{expected_score_badge}"' in page
+
+    # Test the Bite-proof badge
+    cs = [c("guarded", caught="`test_x`")]
+    page = recent.write_html(root, cs, [], 1.0).read_text(encoding="utf-8")
+
+    assert f'data-copy="{recent.BADGE}"' in page
+    assert page.count('class="copy-badge"') >= 1

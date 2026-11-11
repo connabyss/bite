@@ -2549,6 +2549,14 @@ def write_html(root: Path, cs: list, tried: list, seconds: float, trend: dict | 
     import html
     from datetime import datetime
     e = html.escape
+    def badge_with_copy(markdown: str) -> str:
+        return (
+            f'<span class="badge-copy">'
+            f'<code>{e(markdown)}</code>'
+            f'<button class="copy-badge" type="button" '
+            f'data-copy="{e(markdown, quote=True)}">Copy</button>'
+            f'</span>'
+        )
     link = commit_link(root)
     checked = [c for c in cs if c.get("undo")]
     kinds = [say(c)[0] for c in checked]
@@ -2588,7 +2596,7 @@ def write_html(root: Path, cs: list, tried: list, seconds: float, trend: dict | 
                    if ROAST[0] else f"No test noticed any of the {total} changes Bite could check." if n == 0 else
                    f"A test noticed {n} of the {total} changes Bite could check. The other {total - n} could break "
                    "quietly.")
-                + f'<div class="why">README badge: <code>{e(score_badge(n, total))}</code>'
+                + f'<div class="why">README badge: {badge_with_copy(score_badge(n, total))}'
                 + (' &middot; <a href="card.svg">a picture of this score to share</a>' if (proof_dir(root) / "card.svg").is_file() else "")
                 + '</div></div></div>')
     bad = [c for c in checked if say(c)[0] in ("gap", "odd", "back")]
@@ -2612,6 +2620,9 @@ table{{width:100%;border-collapse:collapse}} td{{padding:8px 6px;border-top:1px 
 td:first-child{{white-space:nowrap}} .dot{{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--skip)}}
 .held .dot{{background:var(--held)}} .gap .dot,.none .dot{{background:var(--gap)}} .odd .dot,.fail .dot,.back .dot{{background:var(--odd)}}
 .why{{color:var(--mute);font-size:13px}} .proof{{border:1px solid var(--held);border-radius:10px;padding:12px 14px}}
+.badge-copy{{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}}
+.copy-badge{{border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:6px;padding:3px 8px;font:inherit;font-size:12px;cursor:pointer}}
+.copy-badge:hover{{background:var(--line)}}
 .proof b{{color:var(--held)}} .score{{display:flex;gap:18px;align-items:center;margin:24px 0 0}}
 .score .track{{fill:none;stroke:var(--line);stroke-width:10}} .score .arc{{fill:none;stroke:var(--gap);stroke-width:10;stroke-linecap:round}} .score.held .arc{{stroke:var(--held)}}
 .score .big{{fill:var(--fg);font:700 22px system-ui,sans-serif;text-anchor:middle}} .score .small{{fill:var(--mute);font:12px system-ui,sans-serif;text-anchor:middle}}
@@ -2625,13 +2636,34 @@ color:var(--bg);background:var(--gap);border-radius:4px;padding:2px 7px;margin-b
 <div class="sub">{datetime.now():%Y-%m-%d %H:%M} &middot; did the recent "fixed" commits hold? &middot; {seconds:.0f}s, ${SPENT[0]:.2f}</div>
 {ring}
 {wanted}
-{f'<p class="proof"><b>Bite-proof. Nice work.</b> Every change Bite checked had a test that noticed it. Badge for your README:<br><code>{e(BADGE)}</code></p>' if bite_proof(kinds, tried) else ""}
+{f'<p class="proof"><b>Bite-proof. Nice work.</b> Every change Bite checked had a test that noticed it. Badge for your README:<br>{badge_with_copy(BADGE)}</p>' if bite_proof(kinds, tried) else ""}
 <div class="tiles">{"".join(f'<div class="tile {k}"><b>{n}</b>{e(t)}</div>' for n, t, k in tiles)}</div>
 {f'<h2>Claims tested</h2><table>{claims}</table>' if tried else ""}
 <h2>If this change disappeared, would any test notice?</h2>
 {f'<table>{rows}</table>' if rows else '<p class="sub">No commits were checked.</p>'}
 <footer>✅ means a test failed when Bite took the change out. That's the good result: the test caught it, so it will warn you if the change ever breaks. It doesn't prove the commit has no other bugs.
 Details and rerun commands are in the other files in this folder. Made by <a href="https://github.com/connabyss/bite">Bite</a>.</footer>
+<script>
+document.addEventListener("click", async (event) => {{
+    const button = event.target.closest(".copy-badge");
+    if (!button) return;
+
+    try {{
+        await navigator.clipboard.writeText(button.dataset.copy);
+        button.textContent = "Copied!";
+
+        setTimeout(() => {{
+            button.textContent = "Copy";
+        }}, 1500);
+    }} catch (error) {{
+        button.textContent = "Copy failed";
+
+        setTimeout(() => {{
+            button.textContent = "Copy";
+        }}, 1500);
+    }}
+}});
+</script>
 </main>
 """
     out = proof_dir(root) / "report.html"
