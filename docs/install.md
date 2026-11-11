@@ -83,6 +83,10 @@ Bite runs your tests several times for each change, so a slow test suite makes a
 
 - pytest: install pytest-xdist and put `test_command = python -m pytest -n auto` in `.bite.ini` to run the tests
   themselves 4 at a time. Or point `free_test_command` at a faster part of your tests.
+- If your tests only reach part of the project (a Unity game whose tests cover `Assets/Sim`, say), put
+  `test_covers = Assets/Sim/*, tests/*` in `.bite.ini`. Commits that touch none of those paths are listed as
+  outside the tests' reach instead of being checked, so they don't each take a test run and come back as
+  "no test noticed".
 
 When each change takes over 3 minutes, Bite prints these tips at the end of the run.
 

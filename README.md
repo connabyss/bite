@@ -15,8 +15,8 @@ Bite checks whether an AI coding agent's "fixed" is actually true.
 
 ## Try it now
 
-Free, no key, and it never changes your files. If you have Python, paste these two lines into any terminal
-(PowerShell, cmd, Terminal):
+Free, no key, and it never changes your files. You need Python 3.10 or newer and git. Paste these two lines into
+any terminal (PowerShell, cmd, Terminal):
 
 ```
 python -m pip install bite-check
@@ -70,7 +70,7 @@ How Bite differs from coverage and mutation testing: [Bite, mutmut and coverage]
 | Catch a fix a later commit quietly undid | Built into every free check | [Comeback alarm](https://github.com/connabyss/bite/blob/main/docs/comeback.md) |
 | Write the missing test (your own key) | `bite --write-tests` | [Write tests](https://github.com/connabyss/bite/blob/main/docs/pull-requests.md#have-bite-write-the-missing-test-opt-in-your-own-key) |
 | Score, badge, JSON for scripts | `bite --json` | [Score and results](https://github.com/connabyss/bite/blob/main/docs/score-and-results.md) |
-| Speed up a slow check | `bite --free --jobs 4` | [When a check is slow](https://github.com/connabyss/bite/blob/main/docs/install.md#when-a-check-is-slow) |
+| Speed up a slow check | `bite --free --jobs 4` (not with pytest `-n auto`: it's slower) | [When a check is slow](https://github.com/connabyss/bite/blob/main/docs/install.md#when-a-check-is-slow) |
 
 **The pull request check.** Add this as `.github/workflows/bite.yml`. It runs the free check on each pull
 request's commits and fails when a change can be taken back out and your tests still pass. No key, no cost.
@@ -129,13 +129,16 @@ Famous repos Bite has checked with `bite --free` (Oct 30-31, 2026):
 | [Rich](https://github.com/Textualize/rich) | Python | 37 | 15 | 1 small: [`<kbd>` keys in Markdown](https://github.com/Textualize/rich/commit/a9c4aaba) |
 | [Click](https://github.com/pallets/click) | Python | 37 | 30 | 1 small: [`help` on custom setting types](https://github.com/pallets/click/commit/405a5481) |
 | [qs](https://github.com/ljharb/qs) | JavaScript | 40 | 40 | none ✅ |
-| [chi](https://github.com/go-chi/chi) | Go | 27 | 21 | 2 small: [a test that only works in a terminal](https://github.com/go-chi/chi/commit/878fe71f), [XML compression](https://github.com/go-chi/chi/commit/d7b767bc) |
+| [chi](https://github.com/go-chi/chi) | Go | 27 | 22 | 1 small: [XML compression](https://github.com/go-chi/chi/commit/d7b767bc) |
 | [serde_json](https://github.com/serde-rs/json) | Rust | 16 | 12 | none ✅ |
 | [FluentValidation](https://github.com/FluentValidation/FluentValidation) | C# | 9 | 5 | none ✅ |
 
 More: [the full scoreboard](https://github.com/connabyss/bite/blob/main/SCOREBOARD.md) (20 projects, 5 languages),
 and [bugs fixed or merged upstream](https://github.com/connabyss/bite/blob/main/docs/track-record.md#fixed-or-merged-upstream) in pyclibrary,
-django-tailwind-cli, west, mizani, pamqp and more.
+drf-pydantic, django-tailwind-cli, west, mizani, pamqp and more.
+
+Bite is listed on [awesome-python-testing](https://github.com/cleder/awesome-python-testing) and
+[awesome-testing](https://github.com/TheJambo/awesome-testing).
 
 ## Limits, plainly
 
@@ -147,7 +150,7 @@ django-tailwind-cli, west, mizani, pamqp and more.
 
 ## Join in
 
-**Here for Hack Week or your first open-source PR?** These [good first issues](https://github.com/connabyss/bite/labels/good%20first%20issue)
+**Looking for your first open-source PR?** These [good first issues](https://github.com/connabyss/bite/labels/good%20first%20issue)
 are small, and each one says where to look and when it's done. Comment on one to claim it. Or try to
 [fool Bite](https://github.com/connabyss/bite/issues/156): sneak a "fix" past it.
 

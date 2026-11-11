@@ -59,6 +59,7 @@ Each bug was reproduced with a standalone script in a clean environment before i
 | pamqp | Bite's free check found three past fixes that no test would notice breaking, including one where `Basic.Reject(requeue=False)` was flipped back to `True`. Tests for all three ([#86](https://github.com/gmr/pamqp/pull/86)) merged. |
 | prosemirror-py | The memory leak above ([#335](https://github.com/fellowapp/prosemirror-py/issues/335)): fix [#336](https://github.com/fellowapp/prosemirror-py/pull/336) merged. A second Claude commit (`1e3339e`) let `Mapping` change a list the caller still owned: fix [#337](https://github.com/fellowapp/prosemirror-py/pull/337) merged. |
 | drf-pydantic | Reported in [#51](https://github.com/georgebv/drf-pydantic/issues/51). 5 fixes merged: [#52](https://github.com/georgebv/drf-pydantic/pull/52), [#53](https://github.com/georgebv/drf-pydantic/pull/53), [#54](https://github.com/georgebv/drf-pydantic/pull/54), [#55](https://github.com/georgebv/drf-pydantic/pull/55), [#56](https://github.com/georgebv/drf-pydantic/pull/56). |
+| claude-seo | A Claude commit's `--release` check let a value with a trailing newline through. Fix [#392](https://github.com/AgriciDaniel/claude-seo/pull/392) merged. |
 
 ## Sent, waiting for review
 
@@ -68,7 +69,6 @@ Each bug was reproduced with a standalone script in a clean environment before i
 | ChatSBOM | [#217](https://github.com/WangYihang/ChatSBOM/issues/217) | A Claude commit's stale-result guard is reset on every walk page, so a repo can be collected twice. |
 | llm | [#1828](https://github.com/simonw/llm/pull/1828) | A Claude commit fixed per-turn tool ids in `llm logs`, but its test never made a tool call, so it passed even with the bug. |
 | treg | [#1237](https://github.com/superdesigndev/treg/pull/1237) | A Claude commit's test for an org header passes even with the fix removed, so it guards nothing. |
-| claude-seo | [#392](https://github.com/AgriciDaniel/claude-seo/pull/392) | A Claude commit's `--release` check let a value with a trailing newline through. |
 | marshmallow-fastoneofschema | [#1](https://github.com/Kalepa/marshmallow-fastoneofschema/issues/1), [#2](https://github.com/Kalepa/marshmallow-fastoneofschema/pull/2), [#3](https://github.com/Kalepa/marshmallow-fastoneofschema/pull/3), [#4](https://github.com/Kalepa/marshmallow-fastoneofschema/pull/4) | 3 bugs, one fix each. |
 | django-modeltranslation | [#831](https://github.com/deschler/django-modeltranslation/pull/831) | Nested `auto_populate()` and `fallbacks()` blocks reset the setting to nothing on exit instead of restoring it. |
 | mypy_boto3_builder | [#395](https://github.com/youtype/mypy_boto3_builder/issues/395) | Reported, no reply yet. |
