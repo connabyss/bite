@@ -21,6 +21,8 @@ Also:
 - `--jobs` beside a test command that already runs the tests side by side (pytest `-n auto`) now says so: the runs
   fight for the same cores. On Bite's own repo (4 cores, `-n auto`) `--jobs 2` took 22 minutes against 14 one at a
   time. The slow-run tip no longer suggests `--jobs` there.
+- README and docs refresh: says Bite needs Python 3.10+ and git, fixes the chi row to match the scoreboard,
+  moves claude-seo #392 to merged in the track record, and explains `test_covers` in the install guide.
 
 ## 1.0.7 (2026-11-06)
 
