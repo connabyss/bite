@@ -169,3 +169,25 @@ def test_naming_the_function_the_fix_changed_finds_it(tmp_path, monkeypatch):
     monkeypatch.setattr(recent, "parts", lambda *a, **k: (_ for _ in ()).throw(AssertionError("parts called")))
     r = ask.ask(root, "is the apply_coupon fix guarded?", now=NOW, log=lambda s: None, free=True)
     assert [c["subject"] for c in r["checked"]][:1] == ["Fix totals going negative"], r["text"]
+
+
+def test_bite_ask_refuses_max_0_and_last_0_instead_of_using_1(tmp_path, monkeypatch, capsys):  # #174
+    monkeypatch.chdir(make(tmp_path))
+    monkeypatch.setattr(ask, "ask", lambda *a, **k: (_ for _ in ()).throw(AssertionError("nothing may be checked")))
+    for opt in ("--max", "--last"):
+        assert ask.main(["--free", opt, "0", "discount", "fix"]) == 2
+        assert capsys.readouterr().out.strip() == f"Bite: {opt} needs a whole number of 1 or more, got '0'."
+    assert ask.main(["--free", "--max", "abc", "discount"]) == 1  # a non-number keeps its own message
+    assert "needs a whole number, got 'abc'" in capsys.readouterr().out
+    assert ask.main(["discount", "fix", "--max"]) == 2
+    assert "--max needs a whole number after it" in capsys.readouterr().out
+
+
+def test_bite_ask_stops_on_a_typo_option_before_anything_runs(tmp_path, monkeypatch, capsys):  # #175
+    monkeypatch.chdir(make(tmp_path))
+    monkeypatch.setattr(ask, "ask", lambda *a, **k: (_ for _ in ()).throw(AssertionError("nothing may be checked")))
+    assert ask.main(["--fre", "is", "the", "sub", "fix", "guarded?"]) == 2
+    assert capsys.readouterr().out.strip() == ("Bite: unknown option '--fre'. Did you mean --free? "
+                                               "Run bite ask --help for the options.")
+    assert ask.main(["--maxx", "2", "sub"]) == 2
+    assert "unknown option '--maxx'. Did you mean --max?" in capsys.readouterr().out

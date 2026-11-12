@@ -23,6 +23,10 @@ Also:
   time. The slow-run tip no longer suggests `--jobs` there.
 - README and docs refresh: says Bite needs Python 3.10+ and git, fixes the chi row to match the scoreboard,
   moves claude-seo #392 to merged in the track record, and explains `test_covers` in the install guide.
+- The report page has a Copy button beside each README badge (#224, thanks @AneesFathima-A, Bite's newest contributor).
+- `bite ask --max 0` and `--last 0` now say "needs a whole number of 1 or more" instead of quietly using 1 (#174).
+- `bite ask` stops on an option it doesn't know, like `--fre`, and suggests the right one. Before, the typo became
+  a word of the question, and since `--free` wasn't seen, Bite could spend the API key (#175).
 
 ## 1.0.7 (2026-11-06)
 
