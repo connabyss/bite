@@ -19,6 +19,7 @@ the matching commit instead (about a cent). --free never uses the key.
 """
 
 import asyncio
+import difflib
 import os
 import re
 import shutil
@@ -362,14 +363,27 @@ def main(argv: list) -> int:
     i = 0
     while i < len(argv):
         a = argv[i]
-        if a in opts and i + 1 < len(argv):
+        if a in opts:
+            if i + 1 >= len(argv):
+                print(f"Bite: {a} needs a whole number after it.")
+                return 2
             try:
-                opts[a] = max(1, int(argv[i + 1]))
+                n = int(argv[i + 1])
             except ValueError:
                 print(f"Bite: {a} needs a whole number, got {argv[i + 1]!r}.")
                 return 1
+            if n < 1:  # never quietly turn 0 into 1 (#174)
+                print(f"Bite: {a} needs a whole number of 1 or more, got {argv[i + 1]!r}.")
+                return 2
+            opts[a] = n
             i += 2
             continue
+        if a.startswith("--") and a != "--free":
+            # A typo like --fre would become part of the question, and --free not being seen spends the key (#175).
+            close = difflib.get_close_matches(a, ["--free", "--last", "--max", "--help"], n=1)
+            hint = f" Did you mean {close[0]}?" if close else ""
+            print(f"Bite: unknown option {a!r}.{hint} Run bite ask --help for the options.")
+            return 2
         if a != "--free":
             words_.append(a)
         i += 1
