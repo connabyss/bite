@@ -1,0 +1,22 @@
+# Settings for the link check (.github/workflows/links.yml).
+no_progress = true
+max_retries = 3
+retry_wait_time = 5
+timeout = 30
+max_concurrency = 8
+# 429 = the site asked us to slow down, not a broken link.
+accept = ["200..=299", "429"]
+exclude_path = ["bite_proof", "tests"]
+exclude = [
+  # badge images and avatars: served by shields.io and GitHub, rate-limited for robots
+  '^https://img\.shields\.io/',
+  '^https://avatars\.githubusercontent\.com/',
+  # PyPI shows robots a JavaScript check page instead of the project page
+  '^https://pypi\.org/',
+  # pages that need a signed-in GitHub user
+  '^https://github\.com/connabyss/bite/security/advisories/new',
+  '^https://github\.com/connabyss/bite/issues/new',
+  # placeholders and local addresses in examples
+  '^https?://(localhost|127\.0\.0\.1)',
+  '^https://github\.com/owner/name',
+]

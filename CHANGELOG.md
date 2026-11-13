@@ -3,6 +3,12 @@
 What changed in each Bite release, newest first. Numbers link to the pull request on
 github.com/connabyss/bite. Install or update: `pipx install --force bite-check --pip-args="--no-cache-dir"`.
 
+## Unreleased
+
+- Fixed broken links: the emoji key on the contributors page, the old Marketplace link for the GitHub Action,
+  and a contributor's old profile name. A new weekly link check (`.github/workflows/links.yml`) fails when any
+  link in the docs stops loading.
+
 ## 1.0.8 (2026-11-13)
 
 Thanks to [@AneesFathima-A](https://github.com/AneesFathima-A) for their first pull request, the Copy buttons on
@@ -63,7 +69,7 @@ in #218, and to [@zheng-guannan577](https://github.com/zheng-guannan577) for the
 
 ## 1.0.5 (2026-11-05)
 
-Thanks to [@phsecx](https://github.com/phsecx) for their first pull request: `--only` with a commit id that
+Thanks to [@phsecx](https://github.com/The-Aizen-404) (now @The-Aizen-404) for their first pull request: `--only` with a commit id that
 isn't in the repository now says so (#192). And thanks again to
 [@hrithiksaini99](https://github.com/hrithiksaini99) for three more: "Did you mean" for a misspelled option
 (#180), `bite live` in a repository with no commits yet (#181) and "1 matching commit" in `bite ask` (#182).
