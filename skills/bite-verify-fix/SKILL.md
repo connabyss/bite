@@ -74,3 +74,4 @@ for up to 3 matching commits.
 - As an MCP tool (`check_fix`) for Cursor, Copilot, Windsurf, Codex, Gemini CLI:
   [docs/live.md](https://github.com/connabyss/bite/blob/main/docs/live.md).
 - Source, track record and limits: [github.com/connabyss/bite](https://github.com/connabyss/bite).
+- This skill is also listed on Agensi: [agensi.io/skills/bite-verify-ai-fixes](https://www.agensi.io/skills/bite-verify-ai-fixes).
