@@ -20,7 +20,7 @@ answer wrong:
 - **Or the other way:** a test really does check the fix, but Bite says ⚠️ no test noticed.
 
 Run `bite --free` in your repo (no key, free). If Bite gets it wrong, open an issue with the
-[I fooled Bite](https://github.com/connabyss/bite/issues/new?template=fool-bite.md) form. The two tricks under
+[I fooled Bite](https://github.com/connabyss/bite/issues/new?template=fool-bite.yml) form. The two tricks under
 "Still fools Bite" below are already known, so they don't count; a new twist on one does.
 
 Every trick that works goes in the tables below and in the README's "Fooled Bite" box with your name, gets a test in

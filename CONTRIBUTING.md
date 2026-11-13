@@ -1,6 +1,10 @@
 # Contributing to Bite
 
-Thanks for helping. Bite is small on purpose, so the best PRs are small too.
+Welcome, and thanks for helping. First open-source PR? You're in the right place: each
+[good first issue](https://github.com/connabyss/bite/labels/good%20first%20issue) says where to look and when
+it's done, and if you get stuck we'll help you finish. Bite is small on purpose, so the best PRs are small too.
+
+Questions, ideas, or not sure where to start? Ask in [Discussions](https://github.com/connabyss/bite/discussions).
 
 ## Set up (one minute)
 
