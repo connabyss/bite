@@ -7,7 +7,8 @@ github.com/connabyss/bite. Install or update: `pipx install --force bite-check -
 
 - A `CITATION.cff`, so GitHub shows a "Cite this repository" button.
 - A free agent skill, `skills/bite-verify-fix`: it teaches any coding AI that reads Agent Skills to run
-  `bite live` before it says "fixed". Install it with `npx skills add connabyss/bite`.
+  `bite live` before it says "fixed". Install it with `npx skills add connabyss/bite`, or find it
+  [on Agensi](https://www.agensi.io/skills/bite-verify-ai-fixes).
 - Releases are automatic: merging a pull request that bumps the version in pyproject.toml publishes the drafted
   release notes and puts the new version on PyPI. Every other merge only updates the draft.
 - The link check reads links into Bite's own main branch from the pull request's files, so a new page can be

@@ -76,7 +76,7 @@ How Bite differs from coverage and mutation testing: [Bite, mutmut and coverage]
 | Check every pull request | Add the GitHub Action (below) or the [bite-check app](https://github.com/apps/bite-check) | [Pull requests](https://github.com/connabyss/bite/blob/main/docs/pull-requests.md) |
 | Check Claude's "fixed" the moment it says it | `/plugin marketplace add connabyss/bite`, then `/plugin install bite@bite` | [Live checks](https://github.com/connabyss/bite/blob/main/docs/live.md) |
 | Same, in Cursor, Copilot, Codex, Windsurf, Gemini CLI | `bite mcp` | [Live checks](https://github.com/connabyss/bite/blob/main/docs/live.md#check-the-fixed-live-in-any-coding-ai) |
-| Teach any coding AI to prove its fixes (a free skill) | `npx skills add connabyss/bite` | [The skill](https://github.com/connabyss/bite/blob/main/skills/bite-verify-fix/SKILL.md) |
+| Teach any coding AI to prove its fixes (a free skill) | `npx skills add connabyss/bite` | [The skill](https://github.com/connabyss/bite/blob/main/skills/bite-verify-fix/SKILL.md) · also [on Agensi](https://www.agensi.io/skills/bite-verify-ai-fixes) |
 | Ask in plain words | `bite ask "is last week's login fix guarded?"` | [Ask](https://github.com/connabyss/bite/blob/main/docs/ask.md) |
 | Catch a fix a later commit quietly undid | Built into every free check | [Comeback alarm](https://github.com/connabyss/bite/blob/main/docs/comeback.md) |
 | Write the missing test (your own key) | `bite --write-tests` | [Write tests](https://github.com/connabyss/bite/blob/main/docs/pull-requests.md#have-bite-write-the-missing-test-opt-in-your-own-key) |
