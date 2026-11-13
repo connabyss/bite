@@ -7,8 +7,9 @@ a test proves it.
 
 ## What's in this plugin
 
-- **A Stop hook** that runs `bite live --hook` each time Claude finishes a turn. Same changes are never checked twice.
-- **The `/bite` command**, which runs `bite live` on demand and tells you the result.
+- **A Stop hook** (`hooks/stop.js`, run with node) that hands each finished turn to `bite live --hook`. Same
+  changes are never checked twice. If Bite isn't installed, the hook stays quiet and never blocks Claude.
+- **The `/bite` command**, which asks Claude to run `bite live` on demand and tell you the result.
 - **The `bite-verify-fix` skill**, which teaches Claude when and how to prove a fix before claiming it.
 
 ## Install
@@ -22,12 +23,12 @@ pipx install bite-check
 Then add the plugin in Claude Code:
 
 ```
-/plugin install bite --marketplace connabyss/bite
+/plugin install bite-check --marketplace connabyss/bite
 ```
 
-On older Claude Code: `/plugin marketplace add connabyss/bite`, then `/plugin install bite@bite`.
+On older Claude Code: `/plugin marketplace add connabyss/bite`, then `/plugin install bite-check@bite`.
 
-No pipx: `python -m pip install bite-check`. Bite needs Python 3.10 or newer, git, and your project's own test
+No pipx: `python -m pip install bite-check`. The hook needs Node.js, which Claude Code already uses on most machines. Bite needs Python 3.10 or newer, git, and your project's own test
 runner (pytest, npm test, cargo, go, dotnet, Maven or Gradle).
 
 ## What it runs, reads and sends

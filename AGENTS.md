@@ -76,7 +76,7 @@ repos had none: on well-kept code, AI fix claims mostly hold, and Bite stays qui
 ## Live, in Claude Code
 
 `bite live` runs the free check on the changes since the last commit, right away. The Claude Code plugin in this
-repo (`/plugin marketplace add connabyss/bite`, then `/plugin install bite@bite`) runs it each time you finish a turn
+repo (`/plugin marketplace add connabyss/bite`, then `/plugin install bite-check@bite`) runs it each time you finish a turn
 that changed code: if no test notices your change, you're sent back once to add one that fails without it. Treat
 that as the person asking for the test. `/bite` runs it on demand. No key needed.
 

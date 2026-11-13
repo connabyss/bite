@@ -139,10 +139,14 @@ def test_a_missing_since_ref_still_names_the_ref(tmp_path, monkeypatch, capsys):
 
 def test_the_plugin_runs_these_commands():
     hooks = json.loads((KIT / "plugin" / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-    assert hooks["hooks"]["Stop"][0]["hooks"][0]["command"] == "bite live --hook"
-    assert "!`bite live" in (KIT / "plugin" / "commands" / "bite.md").read_text(encoding="utf-8")
+    hook = hooks["hooks"]["Stop"][0]["hooks"][0]
+    assert hook["command"] == "node" and hook["args"] == ["${CLAUDE_PLUGIN_ROOT}/hooks/stop.js"]
+    assert '"live", "--hook"' in (KIT / "plugin" / "hooks" / "stop.js").read_text(encoding="utf-8")
+    assert "`bite live`" in (KIT / "plugin" / "commands" / "bite.md").read_text(encoding="utf-8")
     market = json.loads((KIT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
-    assert (KIT / market["plugins"][0]["source"] / ".claude-plugin" / "plugin.json").is_file()
+    manifest = json.loads((KIT / market["plugins"][0]["source"] / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    assert manifest["name"] == market["plugins"][0]["name"]
+    assert market["renames"]["bite"] == manifest["name"]  # old installs (bite@bite) move over by themselves
 
 
 def test_unknown_live_option_errors_and_points_to_help(capsys):

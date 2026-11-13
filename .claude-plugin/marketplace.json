@@ -8,9 +8,12 @@
   },
   "plugins": [
     {
-      "name": "bite",
+      "name": "bite-check",
       "source": "./plugin",
       "description": "Checks Claude's \"fixed\" the moment it says it: takes the change out and runs your tests. If none notice, Claude adds the missing test before you see \"fixed!\"."
     }
-  ]
+  ],
+  "renames": {
+    "bite": "bite-check"
+  }
 }
