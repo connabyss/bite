@@ -3107,7 +3107,7 @@ def how_called() -> str:
 JSON_RUN = [False]  # set while --json runs, so a run outside a repo answers with JSON instead of the demo
 FLAGS = {"--keep-output", "--verbose", "--free", "--all", "--any", "--serious", "--again", "--roast", "--demo", "--write-tests", "--json", "--quick"}
 # 0 here checks nothing and still ends like a clean run (git log -n0 can never find a commit)
-AT_LEAST_ONE = {"--last", "--free-checks"}
+AT_LEAST_ONE = {"--last", "--free-checks", "--jobs"}
 VALUED = {"--last": int, "--free-checks": int, "--suspects": int, "--budget": float, "--since": str, "--part-runs": int,
           "--shard": str, "--only": str, "--jobs": int}
 VALUE_EXAMPLE = {"--budget": "1.00", "--since": "main", "--part-runs": 6, "--shard": "2/5", "--only": "1a2b3c4d", "--jobs": 4}
@@ -3291,7 +3291,7 @@ def main(argv=None):
     VERBOSE[0] = "--verbose" in argv
     KEEP[0] = "--keep-output" in argv
     PART_RUNS[0] = opt("--part-runs", 6)
-    JOBS[0] = max(1, opt("--jobs", 1))
+    JOBS[0] = opt("--jobs", 1)
     shard = re.fullmatch(r"(\d+)/(\d+)", opt("--shard", "1/1"))
     if not shard or not 1 <= int(shard[1]) <= int(shard[2]):
         print(f"Bite: --shard needs which part and how many parts, like --shard 2/5, got {opt('--shard', '')!r}.")
