@@ -1,0 +1,67 @@
+name: welcome
+
+# Says hi to people the first time they open an issue or pull request here, and thanks them when their pull
+# request is merged. It only posts a comment: it never checks out or runs anyone's code, so pull_request_target
+# (needed to comment on pull requests from forks) is safe here.
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened, closed]
+
+permissions: {}
+
+jobs:
+  welcome:
+    if: >-
+      github.repository == 'connabyss/bite'
+      && github.actor != 'connabyss'
+      && !endsWith(github.actor, '[bot]')
+      && (github.event.action == 'opened' || github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      EVENT: ${{ github.event_name }}
+      ACTION: ${{ github.event.action }}
+      NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+      AUTHOR: ${{ github.event.issue.user.login || github.event.pull_request.user.login }}
+      AUTHOR_TYPE: ${{ github.event.issue.user.type || github.event.pull_request.user.type }}
+    steps:
+      - run: |
+          set -euo pipefail
+          if [ "$AUTHOR" = "connabyss" ] || [ "$AUTHOR_TYPE" = "Bot" ]; then exit 0; fi
+          discuss="https://github.com/connabyss/bite/discussions"
+          guide="https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md"
+          easy="https://github.com/connabyss/bite/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"
+          auto="<sub>This hello is automatic. A real reply from me is on its way.</sub>"
+          if [ "$ACTION" = "closed" ]; then
+            body="Merged! Thank you, @$AUTHOR 🙌 This goes out in the next Bite release, and you'll be thanked by name in its notes.
+
+          Up for another one? Here are the [good first issues]($easy)."
+          else
+            # First time only: this issue or pull request is the author's only one here.
+            kind=$([ "$EVENT" = "issues" ] && echo issue || echo pr)
+            issues=$(gh api -X GET search/issues -f q="repo:$REPO author:$AUTHOR is:issue" --jq .total_count)
+            prs=$(gh api -X GET search/issues -f q="repo:$REPO author:$AUTHOR is:pull-request" --jq .total_count)
+            count=$((issues + prs))
+            if [ "$count" -gt 1 ]; then echo "@$AUTHOR has been here before ($count)."; exit 0; fi
+            if [ "$kind" = "issue" ]; then
+              body="Hi @$AUTHOR, thanks for opening your first issue on Bite! 🐾 I'll take a look soon.
+
+          Questions and ideas are welcome in [Discussions]($discuss) too.
+
+          $auto"
+            else
+              body="Hi @$AUTHOR, thanks for your first pull request to Bite! 🎉 CI runs the tests on Linux, Windows and macOS, and if anything goes red, the log says why. I'll review it soon.
+
+          The [contributing guide]($guide) has the short checklist, and [Discussions]($discuss) is open for any questions.
+
+          $auto"
+            fi
+          fi
+          gh api "repos/$REPO/issues/$NUMBER/comments" -f body="$(printf '%s\n' "$body" | sed 's/^          //')" --silent
