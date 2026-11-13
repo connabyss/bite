@@ -13,7 +13,7 @@ In Claude Code, type:
 
 ```
 /plugin marketplace add connabyss/bite
-/plugin install bite@bite
+/plugin install bite-check@bite
 ```
 
 and install Bite itself if you haven't:

@@ -1,6 +1,7 @@
 {
-  "name": "bite",
-  "version": "0.2.0",
+  "name": "bite-check",
+  "displayName": "Bite Check",
+  "version": "0.3.0",
   "description": "Checks Claude's \"fixed\" the moment it says it: takes the change out and runs your tests. If none notice, Claude adds the missing test before you see \"fixed!\". Needs bite-check (pipx install bite-check).",
   "author": {
     "name": "connabyss"
