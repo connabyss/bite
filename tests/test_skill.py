@@ -33,3 +33,21 @@ def test_the_skill_names_every_answer_bite_live_gives():
     for words, result in answers.items():
         assert words in live.say(result), words
         assert words in text, words
+
+
+PLUGIN = SKILL.parent.parent.parent / "plugin"
+
+
+def test_the_plugin_ships_the_same_skill():
+    # the directory takes the plugin folder alone and refuses symlinks, so the plugin holds a copy of the skill
+    copy = PLUGIN / "skills" / SKILL.parent.name / "SKILL.md"
+    assert copy.read_bytes() == SKILL.read_bytes(), "copy skills/bite-verify-fix/SKILL.md into plugin/skills/"
+
+
+def test_the_plugin_folder_passes_the_directory_basics():
+    import json
+    words = re.sub(r"```.*?```", "", (PLUGIN / "README.md").read_text(encoding="utf-8"), flags=re.S).split()
+    assert len(words) >= 40  # the directory blocks a plugin README under 40 words
+    meta = json.loads((PLUGIN / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    assert meta["license"] and meta["version"] and meta["description"]
+    assert "hooks" in json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))
