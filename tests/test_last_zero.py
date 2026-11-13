@@ -40,3 +40,17 @@ def test_negative_last_also_names_the_one_commit_minimum(tmp_path):
     rc, out = run(repo(tmp_path), "--free", "--last", "-3")
     assert rc == 2, out
     assert "--last needs a whole number of 1 or more, got '-3'." in out, out
+
+
+def test_jobs_zero_is_refused_before_the_check_runs(tmp_path):
+    rc, out = run(repo(tmp_path), "--free", "--jobs", "0")
+    assert rc == 2, out
+    assert "--jobs needs a whole number of 1 or more, got '0'." in out, out
+    assert "at a time (--jobs)" not in out, out
+
+
+def test_negative_jobs_also_names_the_one_job_minimum(tmp_path):
+    rc, out = run(repo(tmp_path), "--free", "--jobs", "-2")
+    assert rc == 2, out
+    assert "--jobs needs a whole number of 1 or more, got '-2'." in out, out
+
