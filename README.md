@@ -15,7 +15,7 @@ It takes each fix back out of a copy of your project and runs your tests. Free, 
 [![Tests](https://img.shields.io/github/actions/workflow/status/connabyss/bite/tests.yml?branch=main&label=tests)](https://github.com/connabyss/bite/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-24292f)](https://github.com/connabyss/bite/blob/main/LICENSE)
 
-[Try it](#try-it-now) · [Install guide](https://github.com/connabyss/bite/blob/main/docs/install.md) · [GitHub Action](https://github.com/marketplace/actions/bite-free-check) · [Changelog](https://github.com/connabyss/bite/blob/main/CHANGELOG.md) · [Discussions](https://github.com/connabyss/bite/discussions) · [Contribute](https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md)
+[Try it](#try-it-now) · [Install guide](https://github.com/connabyss/bite/blob/main/docs/install.md) · [GitHub Action](https://github.com/connabyss/bite/blob/main/docs/pull-requests.md) · [Changelog](https://github.com/connabyss/bite/blob/main/CHANGELOG.md) · [Discussions](https://github.com/connabyss/bite/discussions) · [Contribute](https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md)
 
 </div>
 

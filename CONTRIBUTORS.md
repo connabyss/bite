@@ -1,7 +1,7 @@
 # Contributors
 
-Thank you to everyone who has helped make Bite. 💻 code, 📖 docs, 🚇 Bite's own CI
-([what each emoji means](https://allcontributors.org/docs/en/emoji-key)).
+Thank you to everyone who has helped make Bite. Under each name: 💻 wrote code, 📖 wrote docs, 🚇 worked on
+Bite's own CI.
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
