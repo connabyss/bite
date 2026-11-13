@@ -1,15 +1,25 @@
-<p>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-header-dark.png">
-    <img alt="Bite" src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-header-light.png" width="300">
-  </picture>
-</p>
+<div align="center">
 
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Bite%20free%20check-blue?logo=github)](https://github.com/marketplace/actions/bite-free-check)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-header-dark.png">
+  <img alt="Bite" src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-header-light.png" width="280">
+</picture>
 
-**Would your tests catch it if the bug came back?**
+### Would your tests catch it if the bug came back?
 
-Bite checks whether an AI coding agent's "fixed" is actually true.
+Bite checks whether an AI coding agent's "fixed" is actually true.<br>
+It takes each fix back out of a copy of your project and runs your tests. Free, no key.
+
+[![PyPI](https://img.shields.io/pypi/v/bite-check?label=PyPI&color=24292f)](https://pypi.org/project/bite-check/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-24292f)](https://pypi.org/project/bite-check/)
+[![Tests](https://img.shields.io/github/actions/workflow/status/connabyss/bite/tests.yml?branch=main&label=tests)](https://github.com/connabyss/bite/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-24292f)](https://github.com/connabyss/bite/blob/main/LICENSE)
+
+[Try it](#try-it-now) · [Install guide](https://github.com/connabyss/bite/blob/main/docs/install.md) · [GitHub Action](https://github.com/marketplace/actions/bite-free-check) · [Changelog](https://github.com/connabyss/bite/blob/main/CHANGELOG.md) · [Discussions](https://github.com/connabyss/bite/discussions) · [Contribute](https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md)
+
+</div>
+
+<br>
 
 <img alt="bite --demo: one fix is noticed by a test, the other has no test at all" src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-demo.svg" width="760">
 
@@ -92,7 +102,7 @@ jobs:
       # install what your tests need here, e.g. for Python:
       - uses: actions/setup-python@v7
       - run: python -m pip install pytest -r requirements.txt
-      - uses: connabyss/bite@v1.0.7
+      - uses: connabyss/bite@v1.0.8
 ```
 
 **The paid step (optional).** With your own Anthropic API key, Bite writes one small test of a commit's exact
@@ -158,10 +168,44 @@ are small, and each one says where to look and when it's done. Comment on one to
 > here. ([How to enter](https://github.com/connabyss/bite/blob/main/TRICKS.md#your-turn-fool-bite). Bite's own 2 known blind spots are in
 > [Still fools Bite](https://github.com/connabyss/bite/blob/main/TRICKS.md#still-fools-bite), so they don't count.)
 
-Bug reports, fixes and AI-assisted PRs are all welcome. See [CONTRIBUTING.md](https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md). If Bite flagged
-something wrongly, or missed a claim you know was false, please [open an issue](https://github.com/connabyss/bite/issues/new/choose).
+Bug reports, fixes and AI-assisted PRs are all welcome: [CONTRIBUTING.md](https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md)
+has the one-minute setup. If Bite flagged something wrongly, or missed a claim you know was false, please
+[open an issue](https://github.com/connabyss/bite/issues/new/choose). Questions and ideas go in
+[Discussions](https://github.com/connabyss/bite/discussions).
 
-Thank you to [everyone who has helped make Bite](https://github.com/connabyss/bite/blob/main/CONTRIBUTORS.md).
+## Made by these people
+
+Thank you to everyone who has helped make Bite. Want to be here? Pick a
+[good first issue](https://github.com/connabyss/bite/labels/good%20first%20issue).
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/snehaapratap"><img src="https://avatars.githubusercontent.com/u/170080122?v=4?s=80" width="80px;" alt="snehaapratap"/><br /><sub><b>snehaapratap</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=snehaapratap" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/gauravjangra3165"><img src="https://avatars.githubusercontent.com/u/300753752?v=4?s=80" width="80px;" alt="gauravjangra3165"/><br /><sub><b>gauravjangra3165</b></sub></a><br /><a href="#infra-gauravjangra3165" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/bfs2021"><img src="https://avatars.githubusercontent.com/u/101915083?v=4?s=80" width="80px;" alt="bfs2021"/><br /><sub><b>bfs2021</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=bfs2021" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/HarshRajSinghania"><img src="https://avatars.githubusercontent.com/u/40535627?v=4?s=80" width="80px;" alt="HarshRajSinghania"/><br /><sub><b>HarshRajSinghania</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=HarshRajSinghania" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/hrithiksaini99"><img src="https://avatars.githubusercontent.com/u/49943287?v=4?s=80" width="80px;" alt="hrithiksaini99"/><br /><sub><b>hrithiksaini99</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=hrithiksaini99" title="Code">💻</a> <a href="https://github.com/connabyss/bite/commits?author=hrithiksaini99" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/The-Aizen-404"><img src="https://avatars.githubusercontent.com/u/245661236?v=4?s=80" width="80px;" alt="The-Aizen-404"/><br /><sub><b>The-Aizen-404</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=The-Aizen-404" title="Code">💻</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/SatriaBagusNurhadianto"><img src="https://avatars.githubusercontent.com/u/237350863?v=4?s=80" width="80px;" alt="SatriaBagusNurhadianto"/><br /><sub><b>SatriaBagusNurhadianto</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=SatriaBagusNurhadianto" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/hamid-digitalmarketer"><img src="https://avatars.githubusercontent.com/u/341071524?v=4?s=80" width="80px;" alt="hamid-digitalmarketer"/><br /><sub><b>hamid-digitalmarketer</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=hamid-digitalmarketer" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/zheng-guannan577"><img src="https://avatars.githubusercontent.com/u/349123998?v=4?s=80" width="80px;" alt="zheng-guannan577"/><br /><sub><b>zheng-guannan577</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=zheng-guannan577" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/AneesFathima-A"><img src="https://avatars.githubusercontent.com/u/158535421?v=4?s=80" width="80px;" alt="AneesFathima-A"/><br /><sub><b>AneesFathima-A</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=AneesFathima-A" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+---
 
 Also by me: [Cold Case Unit](https://connabyss.github.io/cold-case/), which opens a murder case on every GitHub project its owner walked away from.
 

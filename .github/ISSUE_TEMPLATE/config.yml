@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/connabyss/bite/discussions
+    about: Ask how to use Bite, share what it found, or suggest something new.
+  - name: Read the docs
+    url: https://github.com/connabyss/bite/tree/main/docs
+    about: Install, live checks, pull requests, score and results.

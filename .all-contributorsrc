@@ -4,7 +4,8 @@
   "repoType": "github",
   "repoHost": "https://github.com",
   "files": [
-    "CONTRIBUTORS.md"
+    "CONTRIBUTORS.md",
+    "README.md"
   ],
   "imageSize": 80,
   "commit": false,
@@ -59,10 +60,10 @@
       ]
     },
     {
-      "login": "phsecx",
-      "name": "phsecx",
+      "login": "The-Aizen-404",
+      "name": "The-Aizen-404",
       "avatar_url": "https://avatars.githubusercontent.com/u/245661236?v=4",
-      "profile": "https://github.com/phsecx",
+      "profile": "https://github.com/The-Aizen-404",
       "contributions": [
         "code"
       ]
@@ -90,6 +91,15 @@
       "name": "zheng-guannan577",
       "avatar_url": "https://avatars.githubusercontent.com/u/349123998?v=4",
       "profile": "https://github.com/zheng-guannan577",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "AneesFathima-A",
+      "name": "AneesFathima-A",
+      "avatar_url": "https://avatars.githubusercontent.com/u/158535421?v=4",
+      "profile": "https://github.com/AneesFathima-A",
       "contributions": [
         "code"
       ]

@@ -1,0 +1,33 @@
+name: Bite got it wrong
+description: It flagged a fix that holds, or missed one that doesn't
+labels: [wrong-result]
+body:
+  - type: markdown
+    attributes:
+      value: These reports make Bite better than anything else. Thank you.
+  - type: input
+    id: commit
+    attributes:
+      label: Repo and commit
+      description: A link to the commit Bite got wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: printed
+    attributes:
+      label: What Bite printed
+      description: Paste the line, or attach the file from bite_proof/.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why you think it's wrong
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Your OS, Python version, and test command
+      placeholder: Windows 11, Python 3.12, pytest -q

@@ -7,9 +7,14 @@ change-title-escapes: '\<*_&'
 exclude-labels:
   - skip-changelog
 categories:
+  - title: New
+    labels: [enhancement]
+  - title: Fixed
+    labels: [bug]
+  - title: Docs
+    labels: [documentation]
   - title: Updates to the tools Bite's own repo uses
-    labels:
-      - dependencies
+    labels: [dependencies, github_actions]
 # The "Thank you" line names everyone else who helped: the owner and the bots are left out.
 exclude-contributors:
   - connabyss
@@ -25,7 +30,7 @@ exclude-contributors:
   - web-flow
 no-contributors-template: "Nobody new this time: just the Bite team."
 template: |
-  ## What changed
+  **One line on what this release is about** (write it before publishing).
 
   $CHANGES
 
@@ -33,5 +38,10 @@ template: |
 
   $CONTRIBUTORS
 
-  Install or update: `pipx install --force bite-check --pip-args="--no-cache-dir"`
-  Every change: https://github.com/connabyss/bite/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+  ## Install or update
+
+  ```
+  pipx install --force bite-check --pip-args="--no-cache-dir"
+  ```
+
+  **Full changelog:** https://github.com/connabyss/bite/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
