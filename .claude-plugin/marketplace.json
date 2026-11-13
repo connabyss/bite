@@ -8,9 +8,14 @@
   },
   "plugins": [
     {
-      "name": "bite-check",
+      "name": "fixed-or-not",
       "source": "./plugin",
-      "description": "Checks Claude's \"fixed\" the moment it says it: takes the change out and runs your tests. If none notice, Claude adds the missing test before you see \"fixed!\"."
+      "description": "Makes Claude prove a bug fix before it says \"fixed\": the bite-verify-fix skill and the /bite command."
+    },
+    {
+      "name": "bite-check",
+      "source": "./plugin-live",
+      "description": "Checks Claude's \"fixed\" the moment it says it: a Stop hook that takes the change out and runs your tests after every turn. If none notice, Claude adds the missing test before you see \"fixed!\"."
     }
   ],
   "renames": {

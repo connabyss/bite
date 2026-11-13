@@ -1,20 +1,22 @@
-# Bite for Claude Code
+# Fixed or Not
 
-Bite checks Claude's "fixed" the moment it says it. When Claude finishes a turn that changed code, Bite takes
-that change back out of a copy of your project and runs your tests. If the tests still pass without the change,
-no test guards it, and Claude is sent back once to add a test that fails without it. You see "fixed" only after
-a test proves it.
+A Claude Code plugin from [Bite](https://github.com/connabyss/bite). It makes Claude prove a bug fix before it
+says "fixed". Bite takes Claude's change back out of a copy of your project and runs your tests. If the tests
+still pass without the change, no test guards it, and Claude adds a test that fails without it before telling
+you the fix is done.
 
 ## What's in this plugin
 
-- **A Stop hook** (`hooks/stop.js`, run with node) that hands each finished turn to `bite live --hook`. Same
-  changes are never checked twice. If Bite isn't installed, the hook stays quiet and never blocks Claude.
-- **The `/bite` command**, which asks Claude to run `bite live` on demand and tell you the result.
-- **The `bite-verify-fix` skill**, which teaches Claude when and how to prove a fix before claiming it.
+- **The `bite-verify-fix` skill**, which teaches Claude when and how to prove a fix before claiming it. Claude
+  uses it on its own after fixing a bug.
+- **The `/bite` command**, which asks Claude to run `bite live` on the changes since the last commit and tell
+  you the result.
+
+Claude runs `bite live` with its own Bash tool, so Claude Code asks you first unless you have allowed it.
 
 ## Install
 
-The plugin calls the `bite` command from the `bite-check` package on PyPI, so install that first:
+The plugin uses the `bite` command from the `bite-check` package on PyPI, so install that first:
 
 ```
 pipx install bite-check
@@ -23,21 +25,24 @@ pipx install bite-check
 Then add the plugin in Claude Code:
 
 ```
-/plugin install bite-check --marketplace connabyss/bite
+/plugin install fixed-or-not --marketplace connabyss/bite
 ```
 
-On older Claude Code: `/plugin marketplace add connabyss/bite`, then `/plugin install bite-check@bite`.
+On older Claude Code: `/plugin marketplace add connabyss/bite`, then `/plugin install fixed-or-not@bite`.
 
-No pipx: `python -m pip install bite-check`. The hook needs Node.js, which Claude Code already uses on most machines. Bite needs Python 3.10 or newer, git, and your project's own test
+No pipx: `python -m pip install bite-check`. Bite needs Python 3.10 or newer, git, and your project's own test
 runner (pytest, npm test, cargo, go, dotnet, Maven or Gradle).
+
+Want the check to run by itself every time Claude finishes a turn? The same marketplace has `bite-check@bite`,
+a Stop hook that does exactly that ([docs/live.md](https://github.com/connabyss/bite/blob/main/docs/live.md)).
 
 ## What it runs, reads and sends
 
-- It runs your project's own test command, twice per check: once as is and once with the change taken out.
-  The tests run in a temporary copy of the project, so your files are never changed. Tests run with your
+- `bite live` runs your project's own test command, twice per check: once as is and once with the change taken
+  out. The tests run in a temporary copy of the project, so your files are never changed. Tests run with your
   user's rights; set `contain_command` in `.bite.ini` to run them inside Docker with no network.
-- It reads your git history and the files that changed since the last commit or since the turn started.
-- It writes a small state file inside your `.git` folder (`.git/bite/live.json`) so it doesn't repeat itself.
+- It reads your git history and the files that changed since the last commit.
+- It writes a small state file inside your `.git` folder (`.git/bite/live.json`).
 - It sends nothing anywhere. The live check makes no network calls and needs no API key or account.
 
 ## Limits
