@@ -16,5 +16,7 @@ These rules are for Claude sessions run by the repo's owner, on top of AGENTS.md
 - Nothing goes live or public without connabyss's OK: releases, posts, badge or README changes on other sites.
   Publishing a GitHub release uploads to PyPI (`.github/workflows/publish.yml`), so never create one; releases are
   planned first.
+- Sponsor rewards are promises: before a release, check the Sponsors section comment in README.md and add
+  new $5 one-time sponsors to the CHANGELOG section's first paragraph and $10 monthly sponsors to the README list.
 - Before a PR: `pip install -e .[test]`, then `python -m pytest` (no key, no network). A bug fix needs a test that
   fails without it. Fill in `.github/pull_request_template.md`.
