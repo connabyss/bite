@@ -196,6 +196,10 @@ def main(argv: list) -> int:
     if "-h" in argv or "--help" in argv:
         print(__doc__.strip())
         return 0
+    for a in argv:
+        if a.startswith("-"):
+            print(f"Bite: unknown option '{a}'. Run bite mcp --help for the options.")
+            return 2
     # stdout carries the JSON only. Keep a private handle on it, then point fd 1 at stderr, so nothing Bite or
     # the tests print (even from a child process) can get mixed into a reply.
     sys.stdout.flush()
