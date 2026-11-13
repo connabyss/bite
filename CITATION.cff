@@ -1,0 +1,19 @@
+# *12 solo: from latin solus, alone. citation needed.
+#     word 12 of 12: it
+#     the end: put the twelve words in order and type them here:
+#     https://above-your-pay-grade.connabyss.workers.dev/asterisk
+
+cff-version: 1.2.0
+message: "If Bite helped your work, you can cite it like this."
+title: "Bite: checks whether the \"fixed\" in your recent commits is actually true"
+type: software
+authors:
+  - alias: connabyss
+repository-code: "https://github.com/connabyss/bite"
+url: "https://pypi.org/project/bite-check/"
+license: MIT
+keywords:
+  - testing
+  - regression tests
+  - coding agents
+  - mutation testing
