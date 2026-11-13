@@ -5,6 +5,12 @@ github.com/connabyss/bite. Install or update: `pipx install --force bite-check -
 
 ## Unreleased
 
+- A free agent skill, `skills/bite-verify-fix`: it teaches any coding AI that reads Agent Skills to run
+  `bite live` before it says "fixed". Install it with `npx skills add connabyss/bite`.
+- Releases are automatic: merging a pull request that bumps the version in pyproject.toml publishes the drafted
+  release notes and puts the new version on PyPI. Every other merge only updates the draft.
+- The link check reads links into Bite's own main branch from the pull request's files, so a new page can be
+  linked in the same pull request that adds it.
 - Fixed broken links: the emoji key on the contributors page, the old Marketplace link for the GitHub Action,
   and a contributor's old profile name. A new weekly link check (`.github/workflows/links.yml`) fails when any
   link in the docs stops loading.

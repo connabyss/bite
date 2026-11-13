@@ -1,6 +1,7 @@
 # Release Drafter (.github/workflows/release-drafter.yml) keeps a draft of the next release's notes on the
-# Releases page, adding each pull request as it merges into main. To release: bump the version in
-# pyproject.toml, then open the draft on github.com/connabyss/bite/releases, read it, and press Publish.
+# Releases page, adding each pull request as it merges into main. To release: merge a pull request that bumps
+# the version in pyproject.toml and adds its CHANGELOG.md section. The workflow then publishes this draft as
+# that release (the section's first paragraph opens the notes) and starts the PyPI publish workflow.
 # The version, tag and title come from pyproject.toml, so the publish workflow's tag check always matches.
 change-template: "- $TITLE (#$NUMBER, @$AUTHOR)"
 change-title-escapes: '\<*_&'
@@ -30,8 +31,6 @@ exclude-contributors:
   - web-flow
 no-contributors-template: "Nobody new this time: just the Bite team."
 template: |
-  **One line on what this release is about** (write it before publishing).
-
   $CHANGES
 
   ## Thank you
