@@ -1,9 +1,19 @@
 {
   "name": "bite",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Checks Claude's \"fixed\" the moment it says it: takes the change out and runs your tests. If none notice, Claude adds the missing test before you see \"fixed!\". Needs bite-check (pipx install bite-check).",
-  "author": {"name": "connabyss"},
+  "author": {
+    "name": "connabyss"
+  },
   "homepage": "https://github.com/connabyss/bite",
   "repository": "https://github.com/connabyss/bite",
-  "license": "MIT"
+  "license": "MIT",
+  "keywords": [
+    "testing",
+    "tests",
+    "bug-fix",
+    "verification",
+    "code-review",
+    "regression"
+  ]
 }

@@ -5,6 +5,8 @@ github.com/connabyss/bite. Install or update: `pipx install --force bite-check -
 
 ## Unreleased
 
+- The Claude Code plugin is ready for Claude's plugin directory: it now ships the `bite-verify-fix` skill, its own
+  README (what it runs, reads and sends), an icon, and version 0.2.0.
 - A `CITATION.cff`, so GitHub shows a "Cite this repository" button.
 - A free agent skill, `skills/bite-verify-fix`: it teaches any coding AI that reads Agent Skills to run
   `bite live` before it says "fixed". Install it with `npx skills add connabyss/bite`, or find it
