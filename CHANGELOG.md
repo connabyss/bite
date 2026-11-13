@@ -5,6 +5,8 @@ github.com/connabyss/bite. Install or update: `pipx install --force bite-check -
 
 ## Unreleased
 
+- Two Claude Code plugins now: `fixed-or-not@bite` (the skill and `/bite`, the one submitted to Claude's plugin
+  directory) and `bite-check@bite` (the automatic Stop-hook check, in `plugin-live/`).
 - The Claude Code plugin is now `bite-check` (install: `/plugin install bite-check@bite`; old `bite@bite` installs move
   over by themselves). Its Stop hook is a node file, so it starts the same way on Windows, and stays quiet if Bite
   isn't installed. `/bite` asks Claude to run `bite live` instead of running shell inside the command.

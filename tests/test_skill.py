@@ -50,4 +50,5 @@ def test_the_plugin_folder_passes_the_directory_basics():
     assert len(words) >= 40  # the directory blocks a plugin README under 40 words
     meta = json.loads((PLUGIN / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert meta["license"] and meta["version"] and meta["description"]
-    assert "hooks" in json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    live = PLUGIN.parent / "plugin-live"
+    assert "hooks" in json.loads((live / "hooks" / "hooks.json").read_text(encoding="utf-8"))

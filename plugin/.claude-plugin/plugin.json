@@ -1,8 +1,8 @@
 {
-  "name": "bite-check",
-  "displayName": "Bite Check",
-  "version": "0.3.0",
-  "description": "Checks Claude's \"fixed\" the moment it says it: takes the change out and runs your tests. If none notice, Claude adds the missing test before you see \"fixed!\". Needs bite-check (pipx install bite-check).",
+  "name": "fixed-or-not",
+  "displayName": "Fixed or Not",
+  "version": "0.4.0",
+  "description": "Makes Claude prove a bug fix before it says \"fixed\": Bite takes the change out of a copy of your project and runs your tests. If none notice, Claude adds the missing test. Needs bite-check (pipx install bite-check).",
   "author": {
     "name": "connabyss"
   },
