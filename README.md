@@ -38,6 +38,15 @@ python -m bite_check --free
 Outside a project, Bite first shows a demo on a tiny made-up one. To check your own project, type the second line
 and a space, drag your project's folder into the window (that types its path), and press Enter.
 
+**No install at all:** [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/connabyss/bite?quickstart=1)
+opens a terminal in your browser with Bite already installed. Type `bite --demo`, or check a famous project
+straight from its link: `bite --free https://github.com/pallets/click`. (Codespaces runs on your GitHub account's
+free monthly hours.)
+
+Any project on GitHub, GitLab, Codeberg or Bitbucket works from its link, on your own computer too:
+`python -m bite_check --free https://github.com/OWNER/NAME`. Bite clones it into a folder of its own and runs its
+tests there, which runs that project's code, so check only projects you'd run yourself.
+
 Other ways: `pipx run bite-check --free` or `uvx bite-check --free` (one line, no install; on Linux or a Mac, use one
 of these if pip says "externally managed"). Commits never say "fix"? Add `--any`. To keep a `bite` command installed:
 [install guide](https://github.com/connabyss/bite/blob/main/docs/install.md).

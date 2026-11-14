@@ -8,6 +8,9 @@ Bite: did your coding agent's recent "done" commits really do what they said?
                               project, plain bite does the same
     bite --free path/to/repo  check that project without going into its folder first (you can drag the folder
                               into the terminal window to type its path)
+    bite --free https://github.com/pallets/click
+                              check a project on GitHub, GitLab, Codeberg or Bitbucket straight from its link:
+                              Bite clones it into a folder of its own first (and runs its tests, so its code)
     bite --demo comeback      see the comeback alarm: a later commit quietly undoes a fix, and Bite names it
     bite --last 80 --suspects 3 --budget 1.00
     bite --serious            only fix claims about data, money, logins, security, crashes or leaks
@@ -3273,6 +3276,20 @@ def main(argv=None):
         elif folder is None and not argv[i].startswith("-") and Path(argv[i].strip("\"'")).is_dir():
             # The project's folder, so nobody has to cd first: dragging a folder into the window types its path.
             folder = argv.pop(i).strip("\"'")
+        elif folder is None and not argv[i].startswith("-") and repo.remote_url(argv[i]):
+            # A link to a project on the web, copied from the browser: clone it into a folder of Bite's own first.
+            url = repo.remote_url(argv.pop(i))
+            print(f"Bite: getting {url} (only the first time takes a while) ...", flush=True)
+            got, why = repo.clone(url)
+            if got is None:
+                print(f"Bite: {why}")
+                return 1
+            if why:
+                print(f"  {why}.")
+            print(f"  Its copy is in {got}. Bite runs that project's tests there, so it runs its code on this\n"
+                  "  computer: check only projects you'd run yourself. Their tests may need its own setup first\n"
+                  "  (pip install -e ., npm install, ...): Bite says so when they fail.", flush=True)
+            folder = str(got)
         elif i and argv[i - 1] == "--demo" and not argv[i].startswith("-"):
             print(f"Bite: there's no demo called {argv[i]!r}. Try bite --demo, or bite --demo comeback.")
             return 2

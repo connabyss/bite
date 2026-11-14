@@ -16,6 +16,7 @@ exclude = [
   # pages that need a signed-in GitHub user
   '^https://github\.com/connabyss/bite/security/advisories/new',
   '^https://github\.com/connabyss/bite/issues/new',
+  '^https://codespaces\.new/',
   # placeholders and local addresses in examples
   '^https?://(localhost|127\.0\.0\.1)',
   '^https://github\.com/owner/name',
