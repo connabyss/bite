@@ -1,0 +1,11 @@
+{
+  "name": "Try Bite",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "postCreateCommand": "python -m pip install --quiet -e . pytest",
+  "postAttachCommand": "echo; echo 'Bite is installed. Try:'; echo '  bite --demo'; echo '  bite --free https://github.com/pallets/click'; echo",
+  "customizations": {
+    "codespaces": {
+      "openFiles": ["README.md"]
+    }
+  }
+}

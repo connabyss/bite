@@ -5,6 +5,11 @@ github.com/connabyss/bite. Install or update: `pipx install --force bite-check -
 
 ## Unreleased
 
+- Check a project straight from its link: `bite --free https://github.com/pallets/click` clones it into a folder
+  of Bite's own (GitHub, GitLab, Codeberg, Bitbucket, or any `.git` address) and checks it. A second run only
+  downloads what's new.
+- Try Bite with no install: an "Open in GitHub Codespaces" button in the README opens a terminal in the browser
+  with Bite installed (`.devcontainer/devcontainer.json`).
 - Two Claude Code plugins now: `fixed-or-not@bite` (the skill and `/bite`, the one submitted to Claude's plugin
   directory) and `bite-check@bite` (the automatic Stop-hook check, in `plugin-live/`).
 - The Claude Code plugin is now `bite-check` (install: `/plugin install bite-check@bite`; old `bite@bite` installs move

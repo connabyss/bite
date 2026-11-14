@@ -73,6 +73,62 @@ def shallow(root: Path) -> bool:
     return (git(root, "rev-parse", "--is-shallow-repository") or "") == "true"
 
 
+# ---- a project on the web --------------------------------------------------------
+# `bite --free https://github.com/pallets/click` checks a project without cloning it by hand first: Bite clones it
+# into a folder of its own (kept, so a second run only downloads what's new) and checks that.
+
+HOSTS = ("github.com", "gitlab.com", "codeberg.org", "bitbucket.org")
+
+
+def remote_url(arg: str) -> str | None:
+    """The address to clone when arg is a link to a project on the web, else None. Takes a project's page as copied
+    from the browser (https://github.com/owner/name, also with /tree/main/... after it or without the https://), a
+    clone address ending in .git, or git@host:owner/name.git."""
+    arg = arg.strip().strip("\"'")
+    if re.fullmatch(r"git@[\w.-]+:[\w./-]+", arg):
+        return arg
+    m = re.fullmatch(r"(?:https?://)?(?:www\.)?([\w.-]+)/(.+?)/?", arg)
+    if not m:
+        return None
+    host, path = m[1].lower(), m[2]
+    if host in HOSTS:
+        parts = path.split("/-/")[0].split("/") if host == "gitlab.com" else path.split("/")[:2]
+        parts = [p for p in parts if p]
+        if len(parts) < 2 or not all(re.fullmatch(r"[\w.-]+", p) for p in parts):
+            return None
+        parts[-1] = parts[-1].removesuffix(".git")
+        return f"https://{host}/{'/'.join(parts)}.git"
+    if arg.startswith(("https://", "http://")) and path.endswith(".git"):
+        return arg
+    return None
+
+
+def clone_folder(url: str) -> Path:
+    """Where Bite keeps its clone of url: one folder per project, under the computer's temporary folder."""
+    import tempfile
+    name = re.sub(r"\.git$", "", re.sub(r"^(?:https?://|git@)", "", url))
+    name = re.sub(r"[^\w.-]+", "-", name).strip("-.")[:80] or "project"
+    return Path(tempfile.gettempdir()) / "bite-projects" / name
+
+
+def clone(url: str, into: Path | None = None) -> tuple[Path | None, str]:
+    """Clone url (or update an earlier clone of it) for Bite to check. Returns the folder, and "" or what went
+    wrong. Only the history comes down at first (--filter=blob:none); git fetches the files of the commits Bite
+    looks at as it needs them, so a big project starts quickly."""
+    into = into or clone_folder(url)
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}  # a private project fails at once instead of waiting for a password
+    if (into / ".git").is_dir():
+        r = subprocess.run(["git", "pull", "--ff-only", "--quiet"], cwd=into, capture_output=True, text=True, env=env)
+        return into, "" if r.returncode == 0 else "couldn't download what's new, so Bite checks the copy it has"
+    into.parent.mkdir(parents=True, exist_ok=True)
+    r = subprocess.run(["git", "clone", "--quiet", "--filter=blob:none", url, str(into)], capture_output=True,
+                       text=True, env=env)
+    if r.returncode != 0:
+        why = (r.stderr.strip().splitlines() or ["git clone failed"])[-1]
+        return None, f"couldn't download {url} ({why}). Check the link, and that the project is public."
+    return into, ""
+
+
 def repo_root(start) -> Path | None:
     """The top folder of the git repository start is in; None when it isn't in one, or isn't a folder at all."""
     if not isinstance(start, (str, os.PathLike)) or not Path(start).is_dir():
