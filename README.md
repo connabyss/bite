@@ -15,6 +15,9 @@ It takes each fix back out of a copy of your project and runs your tests. Free, 
 [![Tests](https://img.shields.io/github/actions/workflow/status/connabyss/bite/tests.yml?branch=main&label=tests)](https://github.com/connabyss/bite/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-24292f)](https://github.com/connabyss/bite/blob/main/LICENSE)
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/connabyss/bite?quickstart=1)<br>
+<sub>Try it in your browser, no install</sub>
+
 [Try it](#try-it-now) · [Install guide](https://github.com/connabyss/bite/blob/main/docs/install.md) · [GitHub Action](https://github.com/connabyss/bite/blob/main/docs/pull-requests.md) · [Changelog](https://github.com/connabyss/bite/blob/main/CHANGELOG.md) · [Discussions](https://github.com/connabyss/bite/discussions) · [Contribute](https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md)
 
 <sub>Read this in: [Tiếng Việt](https://github.com/connabyss/bite/blob/main/docs/i18n/README.vi.md) · [Español](https://github.com/connabyss/bite/blob/main/docs/i18n/README.es.md) · [简体中文](https://github.com/connabyss/bite/blob/main/docs/i18n/README.zh-CN.md)</sub>
@@ -38,8 +41,8 @@ python -m bite_check --free
 Outside a project, Bite first shows a demo on a tiny made-up one. To check your own project, type the second line
 and a space, drag your project's folder into the window (that types its path), and press Enter.
 
-**No install at all:** [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/connabyss/bite?quickstart=1)
-opens a terminal in your browser with Bite already installed. Type `bite --demo`, or check a famous project
+**No install at all:** [open Bite in GitHub Codespaces](https://codespaces.new/connabyss/bite?quickstart=1)
+(the button at the top) opens a terminal in your browser with Bite already installed. Type `bite --demo`, or check a famous project
 straight from its link: `bite --free https://github.com/pallets/click`. (Codespaces runs on your GitHub account's
 free monthly hours.)
 
