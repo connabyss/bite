@@ -17,6 +17,8 @@ It takes each fix back out of a copy of your project and runs your tests. Free, 
 
 [Try it](#try-it-now) · [Install guide](https://github.com/connabyss/bite/blob/main/docs/install.md) · [GitHub Action](https://github.com/connabyss/bite/blob/main/docs/pull-requests.md) · [Changelog](https://github.com/connabyss/bite/blob/main/CHANGELOG.md) · [Discussions](https://github.com/connabyss/bite/discussions) · [Contribute](https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md)
 
+<sub>Read this in: [Tiếng Việt](https://github.com/connabyss/bite/blob/main/docs/i18n/README.vi.md) · [Español](https://github.com/connabyss/bite/blob/main/docs/i18n/README.es.md) · [简体中文](https://github.com/connabyss/bite/blob/main/docs/i18n/README.zh-CN.md)</sub>
+
 </div>
 
 <br>

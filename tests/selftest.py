@@ -676,6 +676,7 @@ rc, out = run(root, ["--free"], fake_worker())
 page = (root / "bite_proof" / "report.html").read_text(encoding="utf-8") if rc == 0 else ""
 check("report: report.html is written and named at the end of a run", "report.html" in out and "<table>" in page)
 check("report: a commit nobody's test guards is shown as such", "No test noticed it was gone" in page)
+check("report: the page says it is in English, so screen readers read it right", '<html lang="en">' in page)
 check("report: the Bite logo sits next to the page title (#89)",
       "<h1><img " in page and "bite-avatar.png" in page.split("</h1>")[0])
 note = (root / "bite_proof" / "COMMENT.md").read_text(encoding="utf-8") if rc == 0 else ""
