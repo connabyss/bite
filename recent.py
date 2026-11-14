@@ -2605,7 +2605,7 @@ def write_html(root: Path, cs: list, tried: list, seconds: float, trend: dict | 
         w, why = mw
         wanted = (f'<div class="wanted"><div class="tag">Most wanted</div><b><code>{sha(w["sha"])}</code> '
                   f'{e(w["subject"])}</b><div>If you write one test today, make it this one: {e(why)}.</div></div>')
-    page = f"""<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    page = f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bite report: {e(root.name)}</title>
 <style>
 :root{{--bg:#fbfaf7;--fg:#1d1d1b;--mute:#6b6a65;--line:#e4e1d8;--held:#2e7d4f;--gap:#b7791f;--odd:#c0392b;--skip:#8a8a85}}
