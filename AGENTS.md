@@ -7,6 +7,9 @@
 - No regression test means it isn't fixed.
 - Quiet is not a pass: Bite staying silent doesn't mean the code is right.
 
+**Changing Bite's own code?** Read [CONTRIBUTING.md](CONTRIBUTING.md) first. It applies to you too. Then read
+[Working on Bite's own code](#working-on-bites-own-code) at the end of this page.
+
 For any coding AI (Claude Code, Codex, Cursor, Copilot and others) and the people who use them. Your person
 pointed you at this repo. It's **Bite**, and it's mostly for **you**. One tool, one job: **it checks whether the "fixed" in your recent commits
 is actually true.**
@@ -132,12 +135,28 @@ without your change, then call it again. "Couldn't check" is not a pass: say so.
 
 ## Working on Bite's own code
 
-- Read [CONTRIBUTING.md](CONTRIBUTING.md). Set up with `pip install -e .[test]`, then `python -m pytest`. No key
-  and no network needed; all tests must pass before and after your change.
-- One fix per PR, with a test that fails without it (for bug fixes), and an `Assisted-by: <tool>` line in the
-  commit message or PR description. Tick the PR template's checklist honestly; screenshots of visual changes
-  are welcome but not required.
-- CI runs the tests on Linux, Windows and macOS (Python 3.10 and 3.13); all six must pass to merge.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) first. It applies to you too. These are the extra notes for a coding agent.
+
+- Set up with `pip install -e .[test]`. Run `python -m pytest -n auto` after every change. No key and no network
+  are needed, and every test must pass before and after your change.
+- A bug fix comes with a test that fails without it. Prove it: take your change out, run the test, see it fail.
+  Bite checks Bite too, so run `bite live` before you commit; it says whether any test notices your change.
+- Changed a message Bite prints? Search `tests/` for its old wording and update those checks on purpose. Never
+  loosen a check just to make it pass.
+- Keep the tests offline. A test never needs an API key, a network call or a real clone from the internet.
+- CI runs on Linux, Windows and macOS (Python 3.10 and 3.13), and every test job must pass. Use `pathlib` for paths and
+  open text files with `encoding="utf-8"`, or Windows breaks.
+- Never bump `version` in `pyproject.toml`. Merging a version bump publishes a release to PyPI. Releases are
+  planned by the maintainer.
+- Don't widen `SAFE_COMMANDS`, `SAFE_GIT`, `DANGER` or `REVIEW_ONLY_DEFAULT` in `bite.py` without saying why in
+  the pull request. They keep the paid step's worker inside its copy of the project.
+- The paid step uses an API key, never a Claude login (see Setup above). Don't add a login fallback.
+- A link to a new page can go in the same pull request that adds the page; the link check reads it from there.
+- Your pull request's title becomes its line in the release notes. Write it as a short
+  [Conventional Commit](https://www.conventionalcommits.org/): `fix(recent): refuse --jobs 0 instead of quietly using 1`.
+- Add an `Assisted-by: <tool>` line to the commit message or the pull request, and tick the template's checklist
+  honestly. Write n/a on a line that doesn't apply.
+- When you draft a review of someone's pull request, follow "How we review" in CONTRIBUTING.md.
 
 Files: recent.py (the tool), live.py (the live check and the Claude Code plugin's hook; the plugin is in plugin/), bite_mcp.py (`bite mcp`, the live check as an MCP tool), bite.py (engine: settings, test running, safe copies, the command filter that keeps
 the worker inside its copy), repo.py (git and settings helpers).
