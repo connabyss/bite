@@ -14,7 +14,7 @@ TEMPLATE = (KIT / ".github" / "pull_request_template.md").read_text(encoding="ut
 
 
 def test_the_template_as_opened_lists_every_box():
-    assert len(problems(TEMPLATE)) == 3
+    assert len(problems(TEMPLATE)) == 4
 
 
 def test_all_ticked_is_green():
