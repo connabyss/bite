@@ -3110,10 +3110,10 @@ def how_called() -> str:
 JSON_RUN = [False]  # set while --json runs, so a run outside a repo answers with JSON instead of the demo
 FLAGS = {"--keep-output", "--verbose", "--free", "--all", "--any", "--serious", "--again", "--roast", "--demo", "--write-tests", "--json", "--quick"}
 # 0 here checks nothing and still ends like a clean run (git log -n0 can never find a commit)
-AT_LEAST_ONE = {"--last", "--free-checks", "--jobs"}
+AT_LEAST_ONE = {"--last", "--free-checks", "--jobs", "--suspects"}
 VALUED = {"--last": int, "--free-checks": int, "--suspects": int, "--budget": float, "--since": str, "--part-runs": int,
           "--shard": str, "--only": str, "--jobs": int}
-VALUE_EXAMPLE = {"--budget": "1.00", "--since": "main", "--part-runs": 6, "--shard": "2/5", "--only": "1a2b3c4d", "--jobs": 4}
+VALUE_EXAMPLE = {"--budget": "1.00", "--since": "main", "--part-runs": 6, "--shard": "2/5", "--only": "1a2b3c4d", "--jobs": 4, "--suspects": 3}
 
 
 def extras(root: Path, cfg) -> list:

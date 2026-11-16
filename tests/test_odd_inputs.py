@@ -50,6 +50,16 @@ def test_jobs_zero_is_refused_not_quietly_turned_into_one(tmp_path, monkeypatch)
         (2, "Bite: --jobs needs a whole number of 1 or more, got '-2'.")
 
 
+def test_suspects_zero_is_refused_not_quietly_testing_no_claims(tmp_path, monkeypatch):
+    # #230: --suspects 0 quietly tested no claims and looked like an all-clear
+    monkeypatch.chdir(tmp_path)
+    assert say(["--free", "--suspects", "0"]) == \
+        (2, "Bite: --suspects needs a whole number of 1 or more, got '0'.")
+    assert say(["--free", "--suspects", "-3"]) == \
+        (2, "Bite: --suspects needs a whole number of 1 or more, got '-3'.")
+
+
+
 def test_a_folder_that_is_not_there_is_not_a_repository(tmp_path):
     assert repo.repo_root(tmp_path / "nope") is None
     (tmp_path / "f.txt").write_text("x")

@@ -54,3 +54,16 @@ def test_negative_jobs_also_names_the_one_job_minimum(tmp_path):
     assert rc == 2, out
     assert "--jobs needs a whole number of 1 or more, got '-2'." in out, out
 
+
+def test_suspects_zero_is_refused_before_the_check_runs(tmp_path):
+    rc, out = run(repo(tmp_path), "--free", "--suspects", "0")
+    assert rc == 2, out
+    assert "--suspects needs a whole number of 1 or more, got '0'." in out, out
+
+
+def test_negative_suspects_also_names_the_one_minimum(tmp_path):
+    rc, out = run(repo(tmp_path), "--free", "--suspects", "-2")
+    assert rc == 2, out
+    assert "--suspects needs a whole number of 1 or more, got '-2'." in out, out
+
+
