@@ -212,8 +212,9 @@ Bite is free and stays free. If it saved you from a false "fixed", you can
 [sponsor its maker](https://github.com/sponsors/connabyss) and keep it improving.
 
 <!-- Sponsor rewards, kept by the maintainer (the tiers on github.com/sponsors/connabyss promise these):
-     $10 a month: the sponsor's name goes in the list below while they sponsor.
-     $5 one time: the sponsor's name goes in the "Thank you" of the next release's notes (put it in the
+     $10 a month: the sponsor's name goes on the connabyss profile front page (connabyss/connabyss README)
+     and in the list below while they sponsor.
+     $5 one time, when the sponsor picked Bite: their name goes in the "Thank you" of the next release's notes (put it in the
      first paragraph of that version's CHANGELOG.md section, which opens the release notes).
      GitHub emails connabyss about each new sponsor. Remove a monthly name when they stop. -->
 Monthly sponsors: none yet. Be the first.
