@@ -2350,14 +2350,22 @@ def say_plain(c: dict, newest: str = "") -> tuple[str, str, str]:
                 f"If this change breaks later, "
                 f"{'that test' if one else 'they'} will warn you.")
     if u == "guard gone since":
-        files = ", ".join(f"`{t}`" for t in c.get("gone", [])[:3])
-        return ("gap", "⚠️ ITS TEST IS GONE", f"⚠️ A test noticed it when it was made{f' ({caught})' if caught else ''}, "
-                f"but {files or 'test files'} {'was' if len(c.get('gone', [])) == 1 else 'were'} deleted later, and with "
-                "it taken out of today's code every test still passes. **Next:** put back a test that fails without it.")
+        if ROAST[0]:
+            body = "The test that watched this fix was deleted later, so nothing catches it now. "
+        else:
+            files = ", ".join(f"`{t}`" for t in c.get("gone", [])[:3])
+            was_were = "was" if len(c.get("gone", [])) == 1 else "were"
+            caught_str = f" ({caught})" if caught else ""
+            body = f"A test noticed it when it was made{caught_str}, but {files or 'test files'} {was_were} deleted later, and with it taken out of today's code every test still passes. "
+        return ("gap", "⚠️ ITS TEST IS GONE", f"⚠️ {body}**Next:** put back a test that fails without it.")
     if u == "unguarded: part":
-        return ("gap", "⚠️ PART NOT NOTICED", f"⚠️ Your tests noticed part of this change{f' ({caught})' if caught else ''}, "
-                f"but not {c.get('part') or 'all of it'}: with only that part taken out, every test still passes. "
-                "If it breaks later, nothing warns you. **Next:** add a test that fails without it.")
+        caught_str = f" ({caught})" if caught else ""
+        if ROAST[0]:
+            body = f"Your tests noticed part of this change{caught_str}, but gave the rest a free pass: if that part breaks, nothing warns you. "
+        else:
+            part_str = c.get("part") or "all of it"
+            body = f"Your tests noticed part of this change{caught_str}, but not {part_str}: with only that part taken out, every test still passes. If it breaks later, nothing warns you. "
+        return ("gap", "⚠️ PART NOT NOTICED", f"⚠️ {body}**Next:** add a test that fails without it.")
     flaky = (f"({c['flaky'].replace('`', '')} failed once without it, then passed: it fails now and then, so it can't "
              "be counted on.) ") if c.get("flaky") else ""
     if u.startswith("unguarded"):
@@ -2377,12 +2385,15 @@ def say_plain(c: dict, newest: str = "") -> tuple[str, str, str]:
         if newest and c["sha"] != newest and not c.get("head"):
             return ("skip", "➖ tests failed here, skipped", "➖ Your tests failed at this commit, so Bite skipped it "
                     "(a later commit may have fixed them).")
-        return ("fail", "❌ tests already fail", "❌ Your tests fail at this commit before Bite takes anything out, so "
-                "Bite can't ask its question. **Next:** fix them first. If they pass on your own computer, "
+        if ROAST[0]:
+            lead = "Your tests were already broken before Bite touched anything, so Bite can't test this fix. "
+        else:
+            lead = "Your tests fail at this commit before Bite takes anything out, so Bite can't ask its question. "
+        return ("fail", "❌ tests already fail", f"❌ {lead}**Next:** fix them first. If they pass on your own computer, "
                 f"[tell Bite how to run them]({SETUP_LINK}).")
     if u == "no tests ran at this commit":
-        return ("none", "⚠️ no tests found", "⚠️ Bite couldn't find any tests to run. **Next:** add one, or "
-                f"[point Bite at your tests]({SETUP_LINK}).")
+        lead = "Bite went looking for tests to run and came back empty-handed. " if ROAST[0] else "Bite couldn't find any tests to run. "
+        return ("none", "⚠️ no tests found", f"⚠️ {lead}**Next:** add one, or [point Bite at your tests]({SETUP_LINK}).")
     if u.startswith("not flagged: "):
         return "skip", "➖ skipped: " + u[len("not flagged: "):], "➖ Skipped: " + u[len("not flagged: "):] + "."
     return "skip", "➖ couldn't check: " + u, "➖ Couldn't check: " + u + "."
