@@ -110,11 +110,11 @@ SPENT = [0.0]
 PLATFORM_WORDS = {"win": r"windows|win32|powershell|ntfs|max_path|userprofile|\.ps1\b|cmd\.exe",
                   "mac": r"macos|mac os|darwin|apfs|osx", "linux": r"linux"}
 HERE = "win" if sys.platform.startswith("win") else "mac" if sys.platform == "darwin" else "linux"
-# Tidy-up commits: nothing in them is meant to change behaviour, so "nothing fails without it" isn't news.
+# Tidy-up commits: nothing in them is meant to change behavior, so "nothing fails without it" isn't news.
 TIDY = re.compile(r"^(chore|style|ci|refactor|build|docs?|tests?)(\([^)]*\))?!?:|^(refactor\w*|renam\w*|clean(s|ed)? ?up|docs?|"
                   r"document\w*)\b|\b(lint|mypy|pyright|tidy|tidies|sort(ed)? imports|"
                   r"reformat\w*|formatting|whitespace|typos?)\b", re.I)
-# Releases: "Release 1.0.154", "Bump version to 12.2.0", "v2.3.1". They change the version number, not behaviour.
+# Releases: "Release 1.0.154", "Bump version to 12.2.0", "v2.3.1". They change the version number, not behavior.
 RELEASE = re.compile(r"^(?:(?:release|releasing|prepare release|bump(?:ed|s)?(?: the)? version(?: to)?|version)\s+)?v?\d+(?:\.\d+)+\s*$", re.I)
 # A change for another Python version can't be checked on this one ("py3.8 fix", "for Python 3.14"); "3.12+" covers later ones.
 PY_VERSION = re.compile(r"\b(?:py(?:thon)?\s?|for |drop(?:s|ped|ping)? |on )3\.(\d{1,2})\b(\+| and (?:later|newer|up))?")
@@ -1728,7 +1728,7 @@ Run on the code at that commit, the test fails like this:
 ---
 Answer strictly. Is this a fair test of what the commit claimed (it doesn't ask for more than the claim or the
 change's evident intent), and does it fail because the code really doesn't do what was claimed (not because the
-test is wrong, uses a wrong API, or expects behaviour nobody promised)?
+test is wrong, uses a wrong API, or expects behavior nobody promised)?
 Then, if REAL, how much it matters: +1 each for: real users would hit it; it loses or corrupts data or money;
 it would be embarrassing if a user found it.
 Reply with one line of JSON only: {{"verdict": "REAL" or "NOT", "matters": 0-3, "bug": "<the false claim in one plain sentence>",
@@ -2149,7 +2149,7 @@ It passes with the change in. With the change taken out, it fails like this:
 ---
 Answer strictly. Is this a fair test of what the change does (it tests only this change, through the code's
 normal way in, and asks for nothing the change and its message don't evidently mean), and does it fail because
-the change's behaviour is gone (not because of a wrong API, a typo, or a detail nobody relies on)?
+the change's behavior is gone (not because of a wrong API, a typo, or a detail nobody relies on)?
 Reply with one line of JSON only: {{"verdict": "FAIR" or "NOT", "why": "<one sentence>"}}"""
 
 
@@ -2401,7 +2401,7 @@ def score(kinds: list) -> tuple[int, int]:
 
 
 def score_color(n: int, total: int) -> str:
-    """shields.io colour for a score: green when every change was noticed, then yellow-green, yellow, orange, red."""
+    """shields.io color for a score: green when every change was noticed, then yellow-green, yellow, orange, red."""
     r = n / total if total else 0
     return "brightgreen" if n == total else "yellowgreen" if r >= .75 else "yellow" if r >= .5 else "orange" if r >= .25 else "red"
 
@@ -2503,19 +2503,19 @@ def write_card(root: Path, n: int, total: int, trend_line: str = "") -> Path | N
         return None
     e = html.escape
     arc, done = 2 * 3.14159 * 150, n == total
-    colour = "#5fbf86" if done else "#e0a84a"
+    color = "#5fbf86" if done else "#e0a84a"
     words = ("Every change Bite checked had a test that noticed it." if done else
              f"A test noticed {n} of the {total} changes Bite checked.")
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img"
  aria-label="Bite score for {e(root.name)}: {n} of {total} changes noticed by a test">
 <rect width="1200" height="630" fill="#161615"/>
 <g transform="translate(225 315)"><circle r="150" fill="#22211f" stroke="#2c2b29" stroke-width="28"/>
-<circle r="150" fill="none" stroke="{colour}" stroke-width="28" stroke-linecap="round" transform="rotate(-90)"
+<circle r="150" fill="none" stroke="{color}" stroke-width="28" stroke-linecap="round" transform="rotate(-90)"
  stroke-dasharray="{arc * n / total:.1f} {arc:.1f}"/>
 <svg x="-80" y="-84" width="160" height="166" viewBox="20 14 160 166">{CAT_SVG}</svg></g>
 <g font-family="system-ui,-apple-system,'Segoe UI',sans-serif" fill="#ecebe6">
 <text x="450" y="150" font-size="34" fill="#9a9992">Bite score · {e(root.name[:40])}</text>
-<text x="442" y="320" font-size="{190 if len(f"{n}/{total}") <= 5 else 130}" font-weight="700" fill="{colour}">{n}/{total}</text>
+<text x="442" y="320" font-size="{190 if len(f"{n}/{total}") <= 5 else 130}" font-weight="700" fill="{color}">{n}/{total}</text>
 <text x="450" y="392" font-size="30">{e(words)}</text>
 {f'<text x="450" y="444" font-size="30" fill="{"#e0a84a" if trend_line.startswith("Down") else "#5fbf86"}">{e(trend_line)}</text>' if trend_line else ""}
 <text x="450" y="560" font-size="24" fill="#9a9992">{date.today().isoformat()} · if this change disappeared, would any test notice?</text>
@@ -2680,7 +2680,7 @@ CAT = ('<img src="https://raw.githubusercontent.com/connabyss/bite/main/assets/b
        'width="24" height="24" alt="Bite" align="top">')
 
 
-# The code fence's language for a written test, so GitHub colours it.
+# The code fence's language for a written test, so GitHub colors it.
 FENCE_LANG = {".py": "python", ".js": "js", ".mjs": "js", ".cjs": "js", ".ts": "ts", ".tsx": "tsx", ".jsx": "jsx",
               ".rs": "rust", ".go": "go", ".cs": "csharp", ".java": "java", ".kt": "kotlin"}
 

@@ -31,7 +31,7 @@ The tests need no key and no network. They should all pass before and after your
 ## PR checklist
 
 Opening a PR fills in a short checklist for you. Its check never blocks your PR; it only reminds you of a box
-left unticked. The one real ask:
+left unchecked. The one real ask:
 
 - **For a bug fix, a test that fails without your change.** That's Bite's whole point, so we hold ourselves to
   it too. Not sure your test catches it? Run `bite live` before you commit: it tells you whether any test

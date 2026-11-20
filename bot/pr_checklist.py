@@ -1,7 +1,7 @@
 """The PR checklist check. Run by .github/workflows/pr-checklist.yml on each pull request.
 
 It reads the pull request's description and lists, as warnings, any box from .github/pull_request_template.md that
-is left unticked (a box whose line says "n/a" counts as done). It never fails: it is a reminder, not a gate, so a
+is left unchecked (a box whose line says "n/a" counts as done). It never fails: it is a reminder, not a gate, so a
 first-time contributor never sees a red X over paperwork. The real gate is the test and CI checks.
 Pull requests opened by bots (for example the ones Bite opens on itself) are skipped.
 It can only see the boxes, not the work behind them. Standard library only.
@@ -16,11 +16,11 @@ BOX = re.compile(r"^\s*[-*]\s+\[([ xX])\]\s*(.*)$", re.M)
 
 
 def problems(body: str) -> list:
-    """What's still missing in a pull request description: one line per unticked box, or one line if there are none."""
+    """What's still missing in a pull request description: one line per unchecked box, or one line if there are none."""
     body = re.sub(r"<!--.*?-->", "", body or "", flags=re.S)
     boxes = BOX.findall(body)
     if not boxes:
-        return ["The checklist is missing. Paste it in from .github/pull_request_template.md and tick the boxes."]
+        return ["The checklist is missing. Paste it in from .github/pull_request_template.md and check the boxes."]
     return [text.strip() for mark, text in boxes
             if mark == " " and not re.search(r"\bn/?a\b", text, re.I)]
 
@@ -33,9 +33,9 @@ def main() -> int:
         return 0
     left = problems(pr.get("body") or "")
     if not left:
-        print("Every box is ticked (or says n/a). Thanks!")
+        print("Every box is checked (or says n/a). Thanks!")
         return 0
-    print("A friendly reminder, nothing blocks your PR. These boxes aren't ticked yet (write n/a if one doesn't apply):")
+    print("A friendly reminder, nothing blocks your PR. These boxes aren't checked yet (write n/a if one doesn't apply):")
     for line in left:
         print(f"::warning::{line}")
     return 0

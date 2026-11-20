@@ -26,7 +26,7 @@ jobs:
         exclude:
           - os: ubuntu-latest
             part: 2
-    # GitHub is short on Apple-chip Macs, so macos-latest jobs sit queued and get cancelled.
+    # GitHub is short on Apple-chip Macs, so macos-latest jobs sit queued and get canceled.
     # Run the Mac jobs on Intel Macs (the job names say macos-latest).
     runs-on: ${{ matrix.os == 'macos-latest' && 'macos-15-intel' || matrix.os }}
     steps:

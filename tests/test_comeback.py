@@ -195,7 +195,7 @@ def test_undoing_a_revert_is_no_alarm():
 
 
 def test_a_tidy_up_undone_is_no_alarm():
-    # Seen on tokio-rs/bytes: "ci: silence warnings" was later done another way. A tidy-up changes no behaviour,
+    # Seen on tokio-rs/bytes: "ci: silence warnings" was later done another way. A tidy-up changes no behavior,
     # so its code going back says nothing about a fix.
     root = project([("Start", {"shop.py": OLD}), ("chore: round totals", {"shop.py": FIXED}),
                     ("Simplify total()", {"shop.py": OLD + OTHER})])

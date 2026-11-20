@@ -45,7 +45,7 @@ It checks the changes since the last commit, committed or not. To check a whole 
 |---|---|---|
 | ✅ a test noticed | With your change out, a test failed. The fix is guarded. | Tell the user, and name the test. |
 | ⚠️ no test noticed | The tests pass with or without your change. | Add a test that fails without your change and passes with it. Run `bite live` again. |
-| ⚠️ the tests that came with this change don't notice it | Your new test passes even with the fix taken out, so it tests nothing the fix did. | Make the test check the behaviour the fix changed. Run `bite live` again. |
+| ⚠️ the tests that came with this change don't notice it | Your new test passes even with the fix taken out, so it tests nothing the fix did. | Make the test check the behavior the fix changed. Run `bite live` again. |
 | couldn't check | Something stopped the check, for example the tests already fail with your change in. | This is not a pass. Tell the user the reason. |
 | nothing to check | No code the tests run has changed. | Say so. Don't claim it was checked. |
 

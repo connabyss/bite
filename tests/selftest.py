@@ -342,10 +342,10 @@ root = make_repo()
 (root / ".bite.ini").write_text(f"[kit]\ntest_command = {PY} -m unittest -q\nallowed_programs = {PY}\n"
                                 "test_covers = calc.py, test_*\n")
 (root / "view.py").write_text("COLOR = 'red'\n")
-commit(root, "Fix the panel colour in the view" + CLAUDE)
+commit(root, "Fix the panel color in the view" + CLAUDE)
 rc, out = run(root, ["--free"], fake_worker())
 check("test_covers: a commit outside the tests' reach is listed, not checked",
-      "outside the tests' reach" in out and "the panel colour" not in out and "Fix clamp" in out)
+      "outside the tests' reach" in out and "the panel color" not in out and "Fix clamp" in out)
 
 # A test runner only notices its own language: pytest passing with a TypeScript change taken out says nothing.
 check("the test command's language: pytest is Python, npm test is JavaScript, make is unknown",
@@ -717,7 +717,7 @@ notes["no tests ran"] = recent.write_comment(root, [dict(c1, undo="no tests ran 
 check("comment: no tests ran is a warning, not a calm dash", f"### {recent.CAT} ⚠️ Bite: no tests found" in notes["no tests ran"])
 notes["tests fail"] = newest_fails
 check("comment: a commit set aside on purpose says skipped, not couldn't check",
-      "Skipped: a tidy-up" in recent.write_comment(root, [dict(c1, undo="not flagged: a tidy-up (no behaviour change meant)")]).read_text(encoding="utf-8"))
+      "Skipped: a tidy-up" in recent.write_comment(root, [dict(c1, undo="not flagged: a tidy-up (no behavior change meant)")]).read_text(encoding="utf-8"))
 # A long commit title is shown whole in the comment, and cut at a word with "…" in the terminal (#71 showed "…the t").
 long_title = "Bite checks Bite: an issue for each gap, and a pull request with the test that closes it"
 check("comment: a long commit title is shown whole, not cut mid-word",

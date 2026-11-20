@@ -63,7 +63,7 @@ Also:
 ## 1.0.7 (2026-11-06)
 
 Thanks to [@SatriaBagusNurhadianto](https://github.com/SatriaBagusNurhadianto) and
-[@hamid-digitalmarketer](https://github.com/hamid-digitalmarketer) for their first pull requests, put together
+hamid-digitalmarketer for their first pull requests, put together
 in #218, and to [@zheng-guannan577](https://github.com/zheng-guannan577) for their first pull request (#193):
 
 - On a repository with fewer commits than `--last`, Bite says "1 commit changed code in all 2 commits." instead
