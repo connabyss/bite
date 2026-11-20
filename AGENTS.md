@@ -154,7 +154,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) first. It applies to you too. These are 
 - A link to a new page can go in the same pull request that adds the page; the link check reads it from there.
 - Your pull request's title becomes its line in the release notes. Write it as a short
   [Conventional Commit](https://www.conventionalcommits.org/): `fix(recent): refuse --jobs 0 instead of quietly using 1`.
-- Add an `Assisted-by: <tool>` line to the commit message or the pull request, and tick the template's checklist
+- Add an `Assisted-by: <tool>` line to the commit message or the pull request, and check the boxes in the template's checklist
   honestly. Write n/a on a line that doesn't apply.
 - When you draft a review of someone's pull request, follow "How we review" in CONTRIBUTING.md.
 

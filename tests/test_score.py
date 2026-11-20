@@ -20,7 +20,7 @@ def test_only_checkable_changes_count():
     assert recent.score(["skip", "fail"]) == (0, 0)
 
 
-def test_badge_colour_and_url():
+def test_badge_color_and_url():
     assert recent.score_color(3, 3) == "brightgreen" and recent.score_color(3, 4) == "yellowgreen"
     assert recent.score_color(1, 2) == "yellow" and recent.score_color(1, 4) == "orange" and recent.score_color(0, 4) == "red"
     b = recent.score_badge(7, 9)

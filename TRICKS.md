@@ -40,7 +40,7 @@ they go under "Not fooled".
 | "Make total faster and correct its rounding" | checked | ➖ skipped as a speed-up | ⚠️ NO TEST NOTICED |
 | "Fix rounding (reported by a Windows user)", no Windows-only code | checked | ➖ skipped: built for Windows | ⚠️ NO TEST NOTICED |
 | "Fix rounding, first seen on Python 3.8", no version check in the code | checked | ➖ skipped: built for Python 3.8 | ⚠️ NO TEST NOTICED |
-| The change sits after a `#` inside a triple-quoted string (a colour `#fff`) | checked | not checked (read as a comment) | ⚠️ NO TEST NOTICED |
+| The change sits after a `#` inside a triple-quoted string (a color `#fff`) | checked | not checked (read as a comment) | ⚠️ NO TEST NOTICED |
 | The change sits after `//` inside a JavaScript template string (a URL) | checked | not checked (read as a comment) | ⚠️ NO TEST NOTICED |
 | The fix is in a docstring the code reads (`__doc__`) | checked | not checked (docstring only) | ⚠️ NO TEST NOTICED |
 | The fix is in a type hint the code reads (`get_type_hints`) | checked | not checked (hint only) | ⚠️ NO TEST NOTICED |

@@ -493,7 +493,7 @@ def refusal_hint(tool: str, cmd: str, cfg: Config) -> str:
     if re.search(r"(^|\s)(~|/|\.\.|[A-Za-z]:\\)", cmd):
         return "Paths must stay inside the project folder (your working directory)."
     if re.match(r"\s*(python3?|py|bash|sh|cmd|powershell|pwsh|node)\b", cmd):
-        return ("No scripts. To check behaviour, write a test file and let the kit run the tests"
+        return ("No scripts. To check behavior, write a test file and let the kit run the tests"
                 + (f", or run an allowed program ({', '.join(cfg.programs)})." if cfg.programs else "."))
     if re.search(r"\bgit\b", cmd):
         return "Only read-only git (status, log, diff, show, blame, grep, ls-files). The planners commit."
@@ -792,7 +792,7 @@ LONG_QUOTES = {".py": ('"""', "'''"), ".pyw": ('"""', "'''"), ".gd": ('"""',),
 def code_lines(text: str, suffix: str) -> list:
     """The file's lines with their comments cut, the way the file's language writes one (in Python // is floor division), reading the whole file: a string that
     runs over several lines (a Python triple-quoted string, a JavaScript template) keeps its # and // as text,
-    so a change inside one (a colour "#fff", a URL "http://") counts as code."""
+    so a change inside one (a color "#fff", a URL "http://") counts as code."""
     longs = sorted(LONG_QUOTES.get(suffix, ()), key=len, reverse=True)
     hash_ = suffix in HASH_COMMENTS
     # Runs of characters that can't start a string, a comment or a new line are copied in one go: a big generated

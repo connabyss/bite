@@ -43,7 +43,7 @@ def test_reading_a_big_file_skips_ordinary_text_in_one_go():
 
 
 def test_reading_fast_still_knows_strings_and_comments():
-    assert bite.code_lines('a = "#fff"  # colour\nb = 1\n', ".py") == ['a = "#fff"  ', "b = 1", ""]
+    assert bite.code_lines('a = "#fff"  # color\nb = 1\n', ".py") == ['a = "#fff"  ', "b = 1", ""]
     assert bite.code_lines("s = `http://x\n// still text`; // gone\n", ".js") == ["s = `http://x", "// still text`; ", ""]
     assert bite.code_lines('x = "a\\"//b" // c\n', ".js") == ['x = "a\\"//b" ', ""]
     assert bite.code_lines("p := `C:\\`; // c\n", ".go") == ["p := `C:\\`; ", ""]

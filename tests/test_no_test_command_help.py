@@ -1,4 +1,4 @@
-"""A repo with no recognisable test runner only said "set test_command in .bite.ini", which a newcomer can't
+"""A repo with no recognizable test runner only said "set test_command in .bite.ini", which a newcomer can't
 act on without knowing what Bite looked for or what the file looks like. Say both, in the console and in the
 pull request comment."""
 

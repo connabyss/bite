@@ -1,4 +1,4 @@
-<!-- Thanks for the PR! Tick what applies, or write n/a on a line that doesn't.
+<!-- Thanks for the PR! Check what applies, or write n/a on a line that doesn't.
      The checklist check never blocks your PR; it only reminds you of anything left. -->
 
 **What was wrong, what you changed, how you checked:**
