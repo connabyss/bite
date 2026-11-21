@@ -92,6 +92,7 @@ import tarfile
 import tempfile
 import threading
 import time
+import urllib.parse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -2497,6 +2498,10 @@ CAT_SVG = ('<defs><mask id="m"><rect width="200" height="200" fill="white"/><pat
            'Q130 117 146 98 Z"/><ellipse cx="75" cy="101" rx="2.6" ry="9" fill="#141118"/><ellipse cx="125" cy="101" '
            'rx="2.6" ry="9" fill="#141118"/><path fill="#e88a96" d="M95 122 L105 122 L100 128 Z"/>'
            '<path fill="#fbf8ee" d="M104.5 136.5 L112 136 L108 149 Z"/>')
+# data: URI of the cat for the browser tab icon in report.html (works offline).
+CAT_ICON = "data:image/svg+xml," + urllib.parse.quote(
+    f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 14 160 166">{CAT_SVG}</svg>'
+)
 
 
 def write_card(root: Path, n: int, total: int, trend_line: str = "") -> Path | None:
@@ -2615,6 +2620,7 @@ def write_html(root: Path, cs: list, tried: list, seconds: float, trend: dict | 
                   f'{e(w["subject"])}</b><div>If you write one test today, make it this one: {e(why)}.</div></div>')
     page = f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bite report: {e(root.name)}</title>
+<link rel="icon" href="{CAT_ICON}">
 <style>
 :root{{--bg:#fbfaf7;--fg:#1d1d1b;--mute:#6b6a65;--line:#e4e1d8;--held:#2e7d4f;--gap:#b7791f;--odd:#c0392b;--skip:#8a8a85}}
 @media (prefers-color-scheme:dark){{:root{{--bg:#161615;--fg:#ecebe6;--mute:#9a9992;--line:#2c2b29;--held:#5fbf86;--gap:#e0a84a;--odd:#ef6b5b;--skip:#7d7c77}}}}

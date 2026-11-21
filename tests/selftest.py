@@ -679,6 +679,8 @@ check("report: a commit nobody's test guards is shown as such", "No test noticed
 check("report: the page says it is in English, so screen readers read it right", '<html lang="en">' in page)
 check("report: the Bite logo sits next to the page title (#89)",
       "<h1><img " in page and "bite-avatar.png" in page.split("</h1>")[0])
+check("report: the browser tab has the Bite cat as its icon (#201)",
+      '<link rel="icon"' in page and 'href="data:image/svg+xml,' in page)
 note = (root / "bite_proof" / "COMMENT.md").read_text(encoding="utf-8") if rc == 0 else ""
 check("comment: the pull request comment leads with a plain verdict and what to do",
       note.startswith(f"<!-- bite-check -->\n### {recent.CAT} ⚠️ Bite: no test noticed 3 changes") and "**Next:**" in note
