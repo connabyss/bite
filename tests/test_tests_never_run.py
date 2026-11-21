@@ -69,6 +69,9 @@ def test_a_test_file_vitest_never_ran_is_named(tmp_path):
     assert recent.own_tests_not_run(tmp_path, c, cfg("npm test"), tmp_path, VITEST_OUT) == "apps/office/tests/auth.test.ts"
     ran = VITEST_OUT.replace("tests/feed.test.ts", "apps/office/tests/auth.test.ts")
     assert recent.own_tests_not_run(tmp_path, c, cfg("npm test"), tmp_path, ran) == ""
+    # vitest colors its output even into a pipe (giantrotta24/biblejourney 68105ca5).
+    colored = VITEST_OUT.replace("Test Files", "\x1b[2m Test Files \x1b[22m").replace(" ✓", " \x1b[32m✓\x1b[39m")
+    assert recent.own_tests_not_run(tmp_path, c, cfg("npm test"), tmp_path, colored) == "apps/office/tests/auth.test.ts"
     # Output with no list of test files (another reporter) says nothing either way.
     assert recent.own_tests_not_run(tmp_path, c, cfg("npm test"), tmp_path, "....\nTest Files  2 passed (2)\n") == ""
 

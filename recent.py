@@ -1949,6 +1949,7 @@ def own_tests_not_run(root: Path, c: dict, fcfg, folder: Path, out: str) -> str:
             return ""
         out_of_reach = [f for f in files if not any(f == r or f.startswith(r + "/") for r in roots)]
         return out_of_reach[0] if len(out_of_reach) == len(files) else ""
+    out = re.sub(r"\x1b\[[0-9;]*m", "", out)  # vitest colors its output even into a pipe
     if not JS_SUMMARY.search(out):
         return ""
     ran = set(JS_TEST_FILE.findall(out))
