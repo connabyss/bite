@@ -555,7 +555,11 @@ DEFAULT_TEST_FILES = ["test_*", "*_test.*", "test.*", "tests.*", "*.test.*", "*.
                       "tests/*", "test/*", "__tests__/*", "spec/*",
                       "*tests.cs", "*test.cs", "*tests.fs", "*test.fs", "*.tests/*", "*.test/*",  # C#/F# (.NET) names
                       "*test.java", "*tests.java", "*test.kt", "*tests.kt",  # Java and Kotlin names
-                      "*test/java/*", "*test/kotlin/*"]  # Gradle's other test folders: src/integrationTest/java, src/jvmTest/kotlin
+                      "*test/java/*", "*test/kotlin/*",  # Gradle's other test folders: src/integrationTest/java, src/jvmTest/kotlin
+                      # The test runner's own settings: taking one out with the code can stop the commit's new tests
+                      # from being found at all (raxmlGUI 868c7d3a added e2e/ to jest's roots with its e2e tests).
+                      "jest.config.*", "vitest.config.*", "vitest.workspace.*", "playwright.config.*", "karma.conf.*"]
+TEST_SETTINGS = re.compile(r"(?i)(?:^|/)(?:jest\.config|vitest\.config|vitest\.workspace|playwright\.config|karma\.conf)\.[^/]+$")
 
 
 def is_test_file(rel: str, cfg: Config) -> bool:
