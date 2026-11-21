@@ -39,6 +39,28 @@ def test_the_runner_settings_stay_in_when_the_code_comes_out():
     assert not bite.is_test_file("src/config.js", c)
 
 
+def test_a_runner_settings_file_is_neither_code_to_take_out_nor_a_test_of_its_own(tmp_path):
+    # raxmlGUI 868c7d3a: jest.config.js (roots += e2e/), e2e helpers and their new tests in one commit.
+    root = tmp_path / "gui"
+    (root / "e2e").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    (root / "package.json").write_text('{"name": "gui", "scripts": {"test": "jest"}}\n')
+    (root / "jest.config.js").write_text("module.exports = { roots: ['<rootDir>/src'] };\n")
+    subprocess.run([*GIT, "add", "-A"], cwd=root, check=True)
+    subprocess.run([*GIT, "commit", "-q", "-m", "Start"], cwd=root, check=True)
+    (root / "jest.config.js").write_text("module.exports = { roots: ['<rootDir>/src', '<rootDir>/e2e'] };\n")
+    (root / "e2e" / "newick.js").write_text("exports.leaves = (t) => t.split(',').length;\n")
+    (root / "e2e" / "newick.test.js").write_text(
+        "const { leaves } = require('./newick');\ntest('counts leaves', () => expect(leaves('(a,b)')).toBe(2));\n")
+    subprocess.run([*GIT, "add", "-A"], cwd=root, check=True)
+    subprocess.run([*GIT, "commit", "-q", "-m", "Fix leaf count"], cwd=root, check=True)
+    sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True).stdout.strip()
+    c = {"sha": sha, "subject": "Fix leaf count", "body": ""}
+    recent.files_of(root, c, recent.repo.load_cfg(root))
+    assert c["code"] == ["e2e/newick.js"], c["code"]
+    assert c["test_code"] == ["e2e/newick.test.js"], c["test_code"]
+
+
 def test_a_test_file_vitest_never_ran_is_named(tmp_path):
     f = tmp_path / "apps" / "office" / "tests"
     f.mkdir(parents=True)
