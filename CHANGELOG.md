@@ -5,6 +5,11 @@ github.com/connabyss/bite. Install or update: `pipx install --force bite-check -
 
 ## Unreleased
 
+- Fewer false alarms: when the tests a commit added never run under your test command (pytest's `testpaths`
+  leaves them out, or vitest or jest never lists them), Bite now says so instead of "its tests didn't notice". And
+  it keeps your test runner's settings (`jest.config.*`, `vitest.config.*`, `playwright.config.*`) in place when it
+  takes a change out, so a commit that pointed the runner at its new tests still gets them run. Found by running
+  Bite on 220 public repos: 9 of its 30 flags there were these two mistakes.
 - Check a project straight from its link: `bite --free https://github.com/pallets/click` clones it into a folder
   of Bite's own (GitHub, GitLab, Codeberg, Bitbucket, or any `.git` address) and checks it. A second run only
   downloads what's new.
