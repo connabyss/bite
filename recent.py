@@ -460,7 +460,8 @@ def files_of(root: Path, c: dict, cfg) -> None:
     said = c["subject"] + " " + re.sub(r"(?im)^[\w-]+-by:.*$", "", c["body"])[:400]
     c["serious"] = claims and bool(MATTERS.search(said))
     c["skip"] = skip_reason(c["subject"], said, code_text(root, c)) or go_os_only(c["code"])
-    c["test_code"] = [n for n in c["tests"] if Path(n).suffix.lower() in repo.CODE_SUFFIXES]
+    c["test_code"] = [n for n in c["tests"] if Path(n).suffix.lower() in repo.CODE_SUFFIXES
+                      and not bite.TEST_SETTINGS.search(n.replace("\\", "/"))]  # jest.config.js runs no test itself
     # No test is suspect, and so is a new test (it may check nothing the change did): the free pass tells which.
     c["score"] = ((3 if claims else 0) + (2 if not c["tests"] or c["test_code"] else 0) + (1 if 0 < c["lines"] <= 80 else 0)
                   + (2 if MATTERS.search(said) else 0))
@@ -1292,6 +1293,9 @@ def check_undo(root: Path, c: dict, cfg) -> str:
         def flag():  # would be flagged: first rule out the usual harmless reasons
             if c.get("skip"):
                 return f"not flagged: {c['skip']}"
+            unrun = c.get("test_code") and own_tests_not_run(root, c, fcfg, folder, now["out"])
+            if unrun:
+                return f"not flagged: your test command never runs its test `{unrun}`, so that test can't notice anything"
             if c.get("test_code") and not tests_touch(root, c):
                 return "not flagged: its tests are about other code"
             skipped = c.get("test_code") and own_test_skipped(root, c, undone["out"])
@@ -1908,6 +1912,52 @@ def added_inside(root: Path, c: dict, name: str) -> bool:
     return False
 
 
+def pytest_roots(cmd: str, folder: Path):
+    """The folders a pytest command collects from: the ones it names, else its settings' testpaths. [] means
+    everywhere; None means a pattern or a variable, which can't be matched against a file."""
+    roots = [t.strip("\"'").rstrip("/") for t in cmd.split()[1:] if not t.startswith("-")
+             and (folder / t.strip("\"'")).is_dir() and t.strip("\"'") not in (".", "./")]
+    if not roots:  # no folder named: pytest runs its settings' testpaths, or everything
+        for n in ("pytest.ini", "pyproject.toml", "tox.ini", "setup.cfg"):
+            text = (folder / n).read_text(encoding="utf-8", errors="replace") if (folder / n).is_file() else ""
+            m = re.search(r"(?m)^\s*testpaths\s*=\s*(\[[^\]]*\]|.*)$", text)
+            if m:
+                roots = [r.strip("/") for r in re.split(r"[\s,]+", re.sub(r"[\[\]\"']", " ", m.group(1))) if r]
+                if not roots or any(ch in "".join(roots) for ch in "*?{$"):
+                    return None
+                break
+    return roots
+
+
+JS_TEST_FILE = re.compile(r"[\w.-]+\.(?:test|spec)\.[cm]?[jt]sx?\b")
+JS_SUMMARY = re.compile(r"(?m)^\s*(?:Test Files\s+\d|Test Suites:)")  # vitest's and jest's closing lines
+
+
+def own_tests_not_run(root: Path, c: dict, fcfg, folder: Path, out: str) -> str:
+    """The commit's own test file, when the project's test command never runs any of them, else ''. Such tests
+    can't notice anything, so "its tests didn't notice" would blame the wrong thing: weyenk/lhr's root vitest
+    config excludes apps/lhr-office/**, and four commits there added tests only under it. pytest: the file is
+    outside every folder the command collects from (testpaths). vitest and jest: their output names the test
+    files they ran, and none of this commit's is among them."""
+    files = [t.replace("\\", "/") for t in c.get("test_code") or [] if (Path(folder) / t).is_file()]
+    if not files:
+        return ""
+    cmd = bite.tests_cmd(fcfg)
+    if PYTEST_RUNNER.search(cmd):
+        roots = pytest_roots(cmd, Path(folder))
+        if not roots:
+            return ""
+        out_of_reach = [f for f in files if not any(f == r or f.startswith(r + "/") for r in roots)]
+        return out_of_reach[0] if len(out_of_reach) == len(files) else ""
+    if not JS_SUMMARY.search(out):
+        return ""
+    ran = set(JS_TEST_FILE.findall(out))
+    mine = [f for f in files if JS_TEST_FILE.fullmatch(f.rsplit("/", 1)[-1])]
+    if not ran or not mine or len(mine) < len(files):
+        return ""  # the output lists no test file (another reporter), or the commit's tests aren't named like one
+    return "" if any(f.rsplit("/", 1)[-1] in ran for f in mine) else mine[0]
+
+
 def own_tests(fcfg, folder: Path, c: dict):
     """A copy of fcfg whose test command runs only the pytest files this commit added or changed, or None when
     that isn't safe to tell: not pytest, tests in a box, no such file, or a file the project's own command might
@@ -1918,17 +1968,9 @@ def own_tests(fcfg, folder: Path, c: dict):
     files = [t for t in c.get("test_code") or [] if PYTEST_FILE.search(t) and (Path(folder) / t).is_file()]
     if not files or len(files) > 20:
         return None
-    roots = [t.strip("\"'").rstrip("/") for t in cmd.split()[1:] if not t.startswith("-")
-             and (Path(folder) / t.strip("\"'")).is_dir() and t.strip("\"'") not in (".", "./")]
-    if not roots:  # no folder named: pytest runs its settings' testpaths, or everything
-        for n in ("pytest.ini", "pyproject.toml", "tox.ini", "setup.cfg"):
-            text = (Path(folder) / n).read_text(encoding="utf-8", errors="replace") if (Path(folder) / n).is_file() else ""
-            m = re.search(r"(?m)^\s*testpaths\s*=\s*(\[[^\]]*\]|.*)$", text)
-            if m:
-                roots = [r.strip("/") for r in re.split(r"[\s,]+", re.sub(r"[\[\]\"']", " ", m.group(1))) if r]
-                if not roots or any(ch in "".join(roots) for ch in "*?{$"):
-                    return None  # a pattern or a variable: not something to match a file against
-                break
+    roots = pytest_roots(cmd, Path(folder))
+    if roots is None:
+        return None
     if roots and not all(any(f == r or f.startswith(r + "/") for r in roots) for f in files):
         return None
     sub = at(fcfg, folder)
