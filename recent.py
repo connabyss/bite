@@ -481,6 +481,11 @@ def export(root: Path, sha: str, cfg) -> Path:
     return dest
 
 
+def plural(n: int, word: str) -> str:
+    """One commit, two commits: no "(s)" for a newcomer to decode."""
+    return f"{n} {word}" + ("" if n == 1 else "s")
+
+
 SUB_WARNED = set()
 
 
@@ -514,7 +519,9 @@ def submodule_fill(root: Path, dest: Path, sha: str) -> int:
             left.append(path)
     if left and str(root) not in SUB_WARNED:
         SUB_WARNED.add(str(root))
-        print(f"  note: {len(left)} git submodule(s) aren't checked out, so Bite's copies don't have them (e.g. "
+        sub = plural(len(left), "git submodule")
+        verb = "isn't" if len(left) == 1 else "aren't"
+        print(f"  note: {sub} {verb} checked out, so Bite's copies don't have them (e.g. "
               f"{left[0]}): run `git submodule update --init` so tests that read them work there.", flush=True)
     return len(left)
 
@@ -569,7 +576,9 @@ def lfs_fill(root: Path, dest: Path, tar: bytes) -> int:
             left.append(name)
     if left and str(root) not in LFS_WARNED:
         LFS_WARNED.add(str(root))
-        print(f"  note: {len(left)} Git LFS file(s) are only pointer files in Bite's copies (e.g. {left[0]}): install "
+        files = plural(len(left), "Git LFS file")
+        verb = "is only a pointer file" if len(left) == 1 else "are only pointer files"
+        print(f"  note: {files} {verb} in Bite's copies (e.g. {left[0]}): install "
               "git-lfs and run `git lfs pull` so tests that read them work there.")
     return len(left)
 
@@ -1067,11 +1076,6 @@ def spelled(secs: float) -> str:
     if secs < 60:
         return f"{secs} sec"
     return f"{secs // 60} min" + (f" {secs % 60} sec" if secs % 60 else "")
-
-
-def plural(n: int, word: str) -> str:
-    """One commit, two commits: no "(s)" for a newcomer to decode."""
-    return f"{n} {word}" + ("" if n == 1 else "s")
 
 
 def _timed(fcfg, folder) -> dict:
@@ -2505,7 +2509,8 @@ def write_card(root: Path, n: int, total: int, trend_line: str = "") -> Path | N
     arc, done = 2 * 3.14159 * 150, n == total
     color = "#5fbf86" if done else "#e0a84a"
     words = ("Every change Bite checked had a test that noticed it." if done else
-             f"A test noticed {n} of the {total} changes Bite checked.")
+             ("No test noticed the one change Bite checked." if total == 1 else
+              f"A test noticed {n} of the {total} changes Bite checked."))
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img"
  aria-label="Bite score for {e(root.name)}: {n} of {total} changes noticed by a test">
 <rect width="1200" height="630" fill="#161615"/>
@@ -2596,7 +2601,7 @@ def write_html(root: Path, cs: list, tried: list, seconds: float, trend: dict | 
                 + '<br>'
                 + ("Every change Bite could check had a test that noticed it." if n == total else
                    f"{total - n} change{'' if total - n == 1 else 's'} could wander off and no test would say a word."
-                   if ROAST[0] else f"No test noticed any of the {total} changes Bite could check." if n == 0 else
+                   if ROAST[0] else ("No test noticed the one change Bite could check." if total == 1 else f"No test noticed any of the {total} changes Bite could check.") if n == 0 else
                    f"A test noticed {n} of the {total} changes Bite could check. The other {total - n} could break "
                    "quietly.")
                 + f'<div class="why">README badge: {badge_with_copy(score_badge(n, total))}'
@@ -3561,7 +3566,9 @@ def main(argv=None):
               flush=True)
     unsplit = [c for c in free if c.get("parts_skipped")]
     if unsplit:
-        print(f"  {len(unsplit)} noticed commit(s) weren't checked piece by piece: that check used its "
+        noticed_commits = plural(len(unsplit), "noticed commit")
+        verb = "wasn't" if len(unsplit) == 1 else "weren't"
+        print(f"  {noticed_commits} {verb} checked piece by piece: that check used its "
               f"{opt('--part-runs', 6)} test runs (--part-runs N allows more).", flush=True)
     cs.sort(key=lambda c: -c["score"])
     found, tried = [], []
@@ -3643,7 +3650,12 @@ def main(argv=None):
     if total:
         tw = trend_words(n, total, trend)
         write_card(root, n, total, tw[0].upper() + tw[1:] if tw else "")
-        print(f"Bite score: {n}/{total} (a test noticed {n} of the {total} changes Bite could check)."
+        score_desc = (
+            ("a test noticed the one change" if n == 1 else "no test noticed the one change")
+            if total == 1
+            else f"a test noticed {n} of the {total} changes"
+        )
+        print(f"Bite score: {n}/{total} ({score_desc} Bite could check)."
               + (f" {tw[0].upper() + tw[1:]}." if tw else "")
               + (f"\nScore badge for your README: {score_badge(n, total)}" if n < total else ""))
     if bite_proof([say(c)[0] for c in checked], tried):
