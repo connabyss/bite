@@ -2502,6 +2502,12 @@ CAT_SVG = ('<defs><mask id="m"><rect width="200" height="200" fill="white"/><pat
 CAT_ICON = "data:image/svg+xml," + urllib.parse.quote(
     f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 14 160 166">{CAT_SVG}</svg>'
 )
+# The cat in plain ASCII for a Bite-proof terminal run (assets/bite-logo.svg: pointy ears, one fang).
+CAT_ASCII = (
+    "   /\\_/\\\n"
+    "  ( o.o )\n"
+    "  =( v )="
+)
 
 
 def write_card(root: Path, n: int, total: int, trend_line: str = "") -> Path | None:
@@ -3665,6 +3671,8 @@ def main(argv=None):
               + (f" {tw[0].upper() + tw[1:]}." if tw else "")
               + (f"\nScore badge for your README: {score_badge(n, total)}" if n < total else ""))
     if bite_proof([say(c)[0] for c in checked], tried):
+        if not JSON_RUN[0]:
+            print(f"\n{CAT_ASCII}")
         print(f"\nBite-proof. Nice work. Every change Bite checked had a test that noticed it.\n"
               f"Badge for your README: {BADGE}")
     if flagged:
