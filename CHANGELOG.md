@@ -5,6 +5,18 @@ github.com/connabyss/bite. Install or update: `pipx install --force bite-check -
 
 ## Unreleased
 
+Thanks to [@abhishekrajv7-cmd](https://github.com/abhishekrajv7-cmd) for five pull requests (#234, #235, #247,
+#255, #256), to [@TheLioN25](https://github.com/TheLioN25) for the cat in the terminal (#258), and to
+[@jeelthacker1](https://github.com/jeelthacker1) for picking up the pytest fix first (#251).
+
+- Python projects that keep pytest's settings in `pyproject.toml` (`[tool.pytest.ini_options]`) or `setup.cfg`
+  (`[tool:pytest]`), or put their tests in deeper folders like `tests/unit/`, no longer get "no test command
+  found": Bite runs pytest (#251).
+- A Bite-proof run shows the Bite cat in your terminal (#258), and the report page has the cat as its browser tab
+  icon (#256).
+- Messages say "1 file" and "1 change" instead of "1 files" and "1 changes" (#255).
+- `--jobs 0` and `--suspects 0` are refused with a plain message instead of quietly doing something else (#234,
+  #247), and `bite mcp` refuses an option it doesn't know (exit code 2) instead of starting the server (#235).
 - Fewer false alarms: when the tests a commit added never run under your test command (pytest's `testpaths`
   leaves them out, or vitest or jest never lists them), Bite now says so instead of "its tests didn't notice". And
   it keeps your test runner's settings (`jest.config.*`, `vitest.config.*`, `playwright.config.*`) in place when it
