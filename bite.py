@@ -896,10 +896,23 @@ def guess_test_command(folder: Path) -> str:
     dotnet = dotnet_target(f)
     if dotnet:
         return "dotnet test " + (f'"{dotnet}"' if " " in dotnet else dotnet)
-    if any((f / n).exists() for n in ("pytest.ini", "conftest.py", "tox.ini")) or \
-            any(f.glob("test*/test_*.py")) or any(f.glob("test_*.py")) or any(f.glob("*/tests/test_*.py")):
+    if any((f / n).exists() for n in ("pytest.ini", "conftest.py", "tox.ini")) or pytest_configured(f) or \
+            any(f.glob("test*/test_*.py")) or any(f.glob("test_*.py")) or any(f.glob("*/tests/test_*.py")) or \
+            any(f.glob("test*/**/test_*.py")):
         return ("python" if WINDOWS else "python3") + " -m pytest -q"
     return ""
+
+
+def pytest_configured(folder: Path) -> bool:
+    """pytest's own settings table in pyproject.toml ([tool.pytest.ini_options]) or setup.cfg ([tool:pytest]).
+    A plain text check: Python 3.10 has no tomllib."""
+    for name, header in (("pyproject.toml", r"^\s*\[tool\.pytest\.ini_options\]"), ("setup.cfg", r"^\s*\[tool:pytest\]")):
+        try:
+            if re.search(header, (Path(folder) / name).read_text(encoding="utf-8", errors="replace"), re.M):
+                return True
+        except OSError:
+            pass
+    return False
 
 
 def jvm_test_command(folder: Path) -> str:
