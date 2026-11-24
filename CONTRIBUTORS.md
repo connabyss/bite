@@ -21,6 +21,8 @@ Bite's own CI.
       <td align="center" valign="top" width="16.66%"><img src="https://avatars.githubusercontent.com/u/341071524?v=4?s=80" width="80px;" alt="hamid-digitalmarketer"/><br /><sub><b>hamid-digitalmarketer</b></sub><br /><a href="https://github.com/connabyss/bite/commits?author=hamid-digitalmarketer" title="Code">💻</a></td>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/zheng-guannan577"><img src="https://avatars.githubusercontent.com/u/349123998?v=4?s=80" width="80px;" alt="zheng-guannan577"/><br /><sub><b>zheng-guannan577</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=zheng-guannan577" title="Code">💻</a></td>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/AneesFathima-A"><img src="https://avatars.githubusercontent.com/u/158535421?v=4?s=80" width="80px;" alt="AneesFathima-A"/><br /><sub><b>AneesFathima-A</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=AneesFathima-A" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/abhishekrajv7-cmd"><img src="https://avatars.githubusercontent.com/u/319123761?v=4?s=80" width="80px;" alt="abhishekrajv7-cmd"/><br /><sub><b>abhishekrajv7-cmd</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=abhishekrajv7-cmd" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/TheLioN25"><img src="https://avatars.githubusercontent.com/u/275329794?v=4?s=80" width="80px;" alt="TheLioN25"/><br /><sub><b>TheLioN25</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=TheLioN25" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

@@ -3,7 +3,7 @@
 What changed in each Bite release, newest first. Numbers link to the pull request on
 github.com/connabyss/bite. Install or update: `pipx install --force bite-check --pip-args="--no-cache-dir"`.
 
-## Unreleased
+## 1.0.9 (2026-11-23)
 
 Thanks to [@abhishekrajv7-cmd](https://github.com/abhishekrajv7-cmd) for five pull requests (#234, #235, #247,
 #255, #256), to [@TheLioN25](https://github.com/TheLioN25) for the cat in the terminal (#258), and to
