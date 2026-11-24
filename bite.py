@@ -57,6 +57,11 @@ def _list(value: str) -> list:
 
 
 DEFAULT_FAIL = r"\bFAIL|SCRIPT ERROR|SHADER ERROR|Parse Error|parse error|ignoring script|Traceback"
+# pytest's closing line for a run where every test passed ("=== 639 passed, 8 warnings in 38.11s ==="). After
+# it, a "Traceback" is not a failing test: an atexit hook logging to a closed stream prints one ("--- Logging
+# error ---") while pytest still exits 0. Read as a failure, it turned whole projects into "tests already fail".
+PYTEST_ALL_PASSED = re.compile(r"(?m)^=+ (?!.*\b(?:failed|errors?)\b)(?=.*\b\d+ passed\b).* in [\d.]+s\b.*=+\s*$")
+DEFAULT_FAIL_BUT_TRACEBACK = DEFAULT_FAIL.replace("|Traceback", "")
 # A line that reports a test that passed: its name can say "parse error" or "FAIL" (mocha's "✔ should persist
 # store when parse error"), and that is not a failure. Mocha writes its marks as UTF-8; read with Windows' usual
 # code page they arrive as "âœ”", "âœ“" or "âˆš".
@@ -744,6 +749,8 @@ def run_tests(cfg: Config, folder: Path) -> dict:
         return {"ok": False, "why": why, "fails": [], "count": None, "out": out, "hung": hung,
                 "secs": secs if hung else None}
     fails = [ln.strip() for ln in out.splitlines() if re.search(cfg.fail_pattern, ln) and not PASSED_LINE.match(ln)]
+    if fails and rc in cfg.ok_codes and cfg.fail_pattern == DEFAULT_FAIL and PYTEST_ALL_PASSED.search(out):
+        fails = [ln for ln in fails if re.search(DEFAULT_FAIL_BUT_TRACEBACK, ln)]
     count = None
     if cfg.count_pattern:
         m = re.findall(cfg.count_pattern, out)
