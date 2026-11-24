@@ -14,6 +14,7 @@ It takes each fix back out of a copy of your project and runs your tests. Free, 
 [![Python](https://img.shields.io/badge/python-3.10%2B-24292f)](https://pypi.org/project/bite-check/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/connabyss/bite/tests.yml?branch=main&label=tests)](https://github.com/connabyss/bite/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-24292f)](https://github.com/connabyss/bite/blob/main/LICENSE)
+[![connabyss/bite MCP server](https://glama.ai/mcp/servers/connabyss/bite/badges/score.svg)](https://glama.ai/mcp/servers/connabyss/bite)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/connabyss/bite?quickstart=1)<br>
 <sub>Try it in your browser, no install</sub>
