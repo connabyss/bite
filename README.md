@@ -223,6 +223,11 @@ Thank you to everyone who has helped make Bite. Want to be here? Pick a
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
+## Want it done for you?
+
+Rather not set it up yourself? Email [connabyss.code@proton.me](mailto:connabyss.code@proton.me) with a link to your
+repo, and I'll run Bite on it and send you the report.
+
 ## Sponsors
 
 Bite is free and stays free. If it saved you from a false "fixed", you can
