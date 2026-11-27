@@ -1,0 +1,58 @@
+name: Reproduce or refute
+description: "State one claim about Bite or a result made with it, with steps anyone can rerun. For example: a fix Bite flagged, a test it wrote, or a number in its track record."
+title: "Claim: "
+labels: ["case"]
+body:
+  - type: markdown
+    attributes:
+      value: "One claim per issue. A case counts as Reproduced only after someone other than you reruns it. See [CASES.md](https://github.com/connabyss/bite/blob/main/CASES.md)."
+  - type: textarea
+    id: claim
+    attributes:
+      label: Claim
+      description: The one thing you say is true (or false), in a sentence.
+      placeholder: "Commit 3614c96 of fellowapp/prosemirror-py does not fix the leak it says it fixes."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: The exact command, input or minimal program, cut down as small as it goes.
+      placeholder: "git clone https://github.com/fellowapp/prosemirror-py && cd prosemirror-py && git checkout 3614c96 ..."
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What the claim says should happen.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What happened when you ran the steps, pasted as printed.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: Version, OS, and the commit or release you ran.
+      placeholder: "bite-check 0.x, Windows 11, Python 3.12, commit abc1234"
+    validations:
+      required: true
+  - type: input
+    id: other
+    attributes:
+      label: Rerunning someone else's case?
+      description: Link it here, and your result counts toward its Reproduced or refuted status.
+  - type: input
+    id: credit
+    attributes:
+      label: Name for credit
+      description: Your GitHub name is used if you leave this empty.

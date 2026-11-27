@@ -27,7 +27,7 @@ It takes each fix back out of a copy of your project and runs your tests. Free, 
 
 <br>
 
-<img alt="bite --demo: one fix is noticed by a test, the other has no test at all" src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-demo.svg" width="760">
+<img alt="A real catch, rerun: a Claude commit in prosemirror-py said it fixed a memory leak. Its own 466 tests pass; Bite's test of the claim fails with assert 1 == 0. The fix was merged upstream." src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-catch.svg" width="760">
 
 ## Try it now
 
@@ -39,7 +39,11 @@ python -m pip install bite-check
 python -m bite_check --free
 ```
 
-Outside a project, Bite first shows a demo on a tiny made-up one. To check your own project, type the second line
+Outside a project, Bite first shows a demo on a tiny made-up one:
+
+<img alt="bite --demo: one fix is noticed by a test, the other has no test at all" src="https://raw.githubusercontent.com/connabyss/bite/main/assets/bite-demo.svg" width="760">
+
+To check your own project, type the second line
 and a space, drag your project's folder into the window (that types its path), and press Enter.
 
 **No install at all:** [open Bite in GitHub Codespaces](https://codespaces.new/connabyss/bite?quickstart=1)
@@ -171,22 +175,23 @@ Bite is listed on [awesome-python-testing](https://github.com/cleder/awesome-pyt
 - **Most claims hold.** Across all rounds so far, Bite tested 137 "fixed" claims that it could run tests for (all from commits made with Claude Code, the AI those rounds looked at). 8 were false (about 1 in 17), and 4 of those were still broken on today's code. On well-reviewed projects it usually finds nothing, and that's the right answer.
 - **Quiet is not a pass.** Bite only shows a failing test that the second check calls fair and real. That second check has thrown out more than 10 failing tests that weren't. A claim that holds proves that one claim, not that the commit has no other bugs.
 - **It needs the project's tests to run.** If they don't run on a clean copy, Bite can't check that commit.
-- **Bug hunting is weaker than claim checking.** In a 10-project overnight hunt, two blind AI judges rated 21 of 22 proven fixes as real bugs and none as wrong, but Bite found only 1 of the 10 bugs the maintainers fixed soon after.
+- **Finding new bugs is weaker than checking claims.** In a 10-project overnight search, two blind AI judges rated 21 of 22 proven fixes as real bugs and none as wrong, but Bite found only 1 of the 10 bugs the maintainers fixed soon after.
 - **Small samples, AI judges.** The judges read code without running it. The human checks are the maintainers' fixes and merges listed above.
 
 ## Join in
 
 **Looking for your first open-source PR?** These [good first issues](https://github.com/connabyss/bite/labels/good%20first%20issue)
 are small, and each one says where to look and when it's done. Comment on one to claim it. Or try to
-[fool Bite](https://github.com/connabyss/bite/issues/156): sneak a "fix" past it.
+[get a fix past Bite](https://github.com/connabyss/bite/issues/156): a "fix" it treats as tested when it isn't.
 
-> 🏆 **Fooled Bite: nobody yet.** Be the first: your name, your trick, and the test that now catches it go right
-> here. ([How to enter](https://github.com/connabyss/bite/blob/main/TRICKS.md#your-turn-fool-bite). Bite's own 2 known blind spots are in
+> **Ways past Bite reported so far: none.** Find one and your name, the method, and the test that now catches it
+> go here. ([How to enter](https://github.com/connabyss/bite/blob/main/TRICKS.md#your-turn-fool-bite). Bite's own 2 known blind spots are in
 > [Still fools Bite](https://github.com/connabyss/bite/blob/main/TRICKS.md#still-fools-bite), so they don't count.)
 
 Bug reports, fixes and AI-assisted PRs are all welcome: [CONTRIBUTING.md](https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md)
 has the one-minute setup. If Bite flagged something wrongly, or missed a claim you know was false, please
-[open an issue](https://github.com/connabyss/bite/issues/new/choose). Questions and ideas go in
+[open an issue](https://github.com/connabyss/bite/issues/new/choose). To check one of Bite's claims yourself, or to
+rerun someone else's check, see [CASES.md](https://github.com/connabyss/bite/blob/main/CASES.md). Questions and ideas go in
 [Discussions](https://github.com/connabyss/bite/discussions).
 
 ## Made by these people
