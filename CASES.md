@@ -30,4 +30,4 @@ closes as Resolved once the reason is written down.
 
 | Case | Claim | Opened by | Reproduced by | Status |
 |---|---|---|---|---|
-| [#?](https://github.com/connabyss/bite/issues) | Commit `3614c96` of fellowapp/prosemirror-py does not fix the memory leak it says it fixes: Bite's test of the claim fails there while the commit's own 466 tests pass. | connabyss | waiting for a rerun | Open. Upstream fix [#336](https://github.com/fellowapp/prosemirror-py/pull/336) merged. |
+| [#265](https://github.com/connabyss/bite/issues/265) | Commit `3614c96` of fellowapp/prosemirror-py does not fix the memory leak it says it fixes: Bite's test of the claim fails there while the commit's own 466 tests pass. | connabyss | waiting for a rerun | Open. Upstream fix [#336](https://github.com/fellowapp/prosemirror-py/pull/336) merged. |
