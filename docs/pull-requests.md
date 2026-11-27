@@ -69,7 +69,7 @@ permissions:
   pull-requests: write
 ```
 
-and, in your repository, Settings, Actions, General: tick **Allow GitHub Actions to create and approve pull
-requests**. Without that tick, Bite still puts the test on its branch and the comment links to open the pull request
+and, in your repository, Settings, Actions, General: check **Allow GitHub Actions to create and approve pull
+requests**. Without that box checked, Bite still puts the test on its branch and the comment links to open the pull request
 yourself. GitHub doesn't run your checks on a pull request a workflow opened, so they run once you merge it into your
 branch; Bite has already run the test both ways. Not on pull requests from forks.

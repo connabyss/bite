@@ -1,5 +1,5 @@
 """A fix with no test of its own, guarded by a test a later commit added, stays "a later test notices" even when a
-tidy-up afterwards edits the line right next to the fix. The tidy-up changes the fix's context lines, so its diff
+tidy-up afterward edits the line right next to the fix. The tidy-up changes the fix's context lines, so its diff
 no longer takes back out of today's code as is; Bite used to give up there and call the fix NO TEST NOTICED.
 (Found by the robot dev team side project: a janitor removing an unused import beside a fix.)"""
 

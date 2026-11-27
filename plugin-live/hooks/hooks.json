@@ -5,7 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bite live --hook",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/stop.js"],
             "timeout": 600
           }
         ]

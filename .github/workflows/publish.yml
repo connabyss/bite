@@ -2,10 +2,13 @@ name: publish
 
 # Puts Bite on PyPI (pip install bite-check) when a GitHub release is published.
 # No token: PyPI trusts this workflow directly (Trusted Publishing), set up once on pypi.org.
+# The release-drafter workflow starts it by name on the new tag (workflow_dispatch) when it publishes a release
+# by itself, since a release made by a workflow's token doesn't send the "published" event.
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 # Read-only by default; only the publish job gets the one extra right PyPI needs (id-token).
 permissions:
@@ -23,7 +26,7 @@ jobs:
         run: |
           version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           tag="${GITHUB_REF_NAME#v}"
-          if [ "$version" != "$tag" ]; then
+          if [ "$GITHUB_REF_TYPE" != "tag" ] || [ "$version" != "$tag" ]; then
             echo "::error::Release tag $GITHUB_REF_NAME doesn't match version $version in pyproject.toml"
             exit 1
           fi

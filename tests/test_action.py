@@ -102,7 +102,7 @@ def test_descriptions_hold_no_expressions():
 
 def test_marketplace_description_reads_cleanly():
     # The Marketplace listing showed "each commit s code change": it dropped the apostrophe. Keep the line free of
-    # apostrophes, ending in a full stop, and within the 125 characters the listing shows.
+    # apostrophes, ending in a period, and within the 125 characters the listing shows.
     yaml = pytest.importorskip("yaml")
     line = yaml.safe_load((KIT / "action.yml").read_text(encoding="utf-8"))["description"]
     assert "'" not in line and "\u2019" not in line

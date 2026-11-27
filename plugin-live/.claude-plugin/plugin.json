@@ -1,0 +1,11 @@
+{
+  "name": "bite-check",
+  "version": "0.4.0",
+  "description": "Bite's automatic check: each time Claude finishes a turn that changed code, takes the change out of a copy of your project and runs your tests. If none notice, Claude is sent back once to add the missing test. Needs bite-check (pipx install bite-check).",
+  "author": {
+    "name": "connabyss"
+  },
+  "homepage": "https://github.com/connabyss/bite",
+  "repository": "https://github.com/connabyss/bite",
+  "license": "MIT"
+}

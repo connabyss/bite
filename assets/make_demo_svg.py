@@ -12,7 +12,7 @@ G, Y, D, T = "#7ee787", "#e3b341", "#8b949e", "#e6edf3"
 LOOP = 19.0  # results are all up by ~6s, then held ~12s so they can be read
 CMD, TYPE_AT, TYPE_STEP = "bite --demo", 0.6, 0.09
 RUN_FROM, RUN_TO = 2.3, 4.0  # spinner turns while the tests run
-# (appears at, [(text, colour, bold)]) - one entry per line; line 0 is the prompt, typed separately
+# (appears at, [(text, color, bold)]) - one entry per line; line 0 is the prompt, typed separately
 LINES = [
     (0.0, []),
     (1.8, [("Two of its commits say they fixed something. One added a test for its fix, the other didn't.", D, 0)]),

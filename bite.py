@@ -57,6 +57,11 @@ def _list(value: str) -> list:
 
 
 DEFAULT_FAIL = r"\bFAIL|SCRIPT ERROR|SHADER ERROR|Parse Error|parse error|ignoring script|Traceback"
+# pytest's closing line for a run where every test passed ("=== 639 passed, 8 warnings in 38.11s ==="). After
+# it, a "Traceback" is not a failing test: an atexit hook logging to a closed stream prints one ("--- Logging
+# error ---") while pytest still exits 0. Read as a failure, it turned whole projects into "tests already fail".
+PYTEST_ALL_PASSED = re.compile(r"(?m)^=+ (?!.*\b(?:failed|errors?)\b)(?=.*\b\d+ passed\b).* in [\d.]+s\b.*=+\s*$")
+DEFAULT_FAIL_BUT_TRACEBACK = DEFAULT_FAIL.replace("|Traceback", "")
 # A line that reports a test that passed: its name can say "parse error" or "FAIL" (mocha's "✔ should persist
 # store when parse error"), and that is not a failure. Mocha writes its marks as UTF-8; read with Windows' usual
 # code page they arrive as "âœ”", "âœ“" or "âˆš".
@@ -493,7 +498,7 @@ def refusal_hint(tool: str, cmd: str, cfg: Config) -> str:
     if re.search(r"(^|\s)(~|/|\.\.|[A-Za-z]:\\)", cmd):
         return "Paths must stay inside the project folder (your working directory)."
     if re.match(r"\s*(python3?|py|bash|sh|cmd|powershell|pwsh|node)\b", cmd):
-        return ("No scripts. To check behaviour, write a test file and let the kit run the tests"
+        return ("No scripts. To check behavior, write a test file and let the kit run the tests"
                 + (f", or run an allowed program ({', '.join(cfg.programs)})." if cfg.programs else "."))
     if re.search(r"\bgit\b", cmd):
         return "Only read-only git (status, log, diff, show, blame, grep, ls-files). The planners commit."
@@ -555,7 +560,11 @@ DEFAULT_TEST_FILES = ["test_*", "*_test.*", "test.*", "tests.*", "*.test.*", "*.
                       "tests/*", "test/*", "__tests__/*", "spec/*",
                       "*tests.cs", "*test.cs", "*tests.fs", "*test.fs", "*.tests/*", "*.test/*",  # C#/F# (.NET) names
                       "*test.java", "*tests.java", "*test.kt", "*tests.kt",  # Java and Kotlin names
-                      "*test/java/*", "*test/kotlin/*"]  # Gradle's other test folders: src/integrationTest/java, src/jvmTest/kotlin
+                      "*test/java/*", "*test/kotlin/*",  # Gradle's other test folders: src/integrationTest/java, src/jvmTest/kotlin
+                      # The test runner's own settings: taking one out with the code can stop the commit's new tests
+                      # from being found at all (raxmlGUI 868c7d3a added e2e/ to jest's roots with its e2e tests).
+                      "jest.config.*", "vitest.config.*", "vitest.workspace.*", "playwright.config.*", "karma.conf.*"]
+TEST_SETTINGS = re.compile(r"(?i)(?:^|/)(?:jest\.config|vitest\.config|vitest\.workspace|playwright\.config|karma\.conf)\.[^/]+$")
 
 
 def is_test_file(rel: str, cfg: Config) -> bool:
@@ -740,6 +749,8 @@ def run_tests(cfg: Config, folder: Path) -> dict:
         return {"ok": False, "why": why, "fails": [], "count": None, "out": out, "hung": hung,
                 "secs": secs if hung else None}
     fails = [ln.strip() for ln in out.splitlines() if re.search(cfg.fail_pattern, ln) and not PASSED_LINE.match(ln)]
+    if fails and rc in cfg.ok_codes and cfg.fail_pattern == DEFAULT_FAIL and PYTEST_ALL_PASSED.search(out):
+        fails = [ln for ln in fails if re.search(DEFAULT_FAIL_BUT_TRACEBACK, ln)]
     count = None
     if cfg.count_pattern:
         m = re.findall(cfg.count_pattern, out)
@@ -792,7 +803,7 @@ LONG_QUOTES = {".py": ('"""', "'''"), ".pyw": ('"""', "'''"), ".gd": ('"""',),
 def code_lines(text: str, suffix: str) -> list:
     """The file's lines with their comments cut, the way the file's language writes one (in Python // is floor division), reading the whole file: a string that
     runs over several lines (a Python triple-quoted string, a JavaScript template) keeps its # and // as text,
-    so a change inside one (a colour "#fff", a URL "http://") counts as code."""
+    so a change inside one (a color "#fff", a URL "http://") counts as code."""
     longs = sorted(LONG_QUOTES.get(suffix, ()), key=len, reverse=True)
     hash_ = suffix in HASH_COMMENTS
     # Runs of characters that can't start a string, a comment or a new line are copied in one go: a big generated
@@ -892,10 +903,23 @@ def guess_test_command(folder: Path) -> str:
     dotnet = dotnet_target(f)
     if dotnet:
         return "dotnet test " + (f'"{dotnet}"' if " " in dotnet else dotnet)
-    if any((f / n).exists() for n in ("pytest.ini", "conftest.py", "tox.ini")) or \
-            any(f.glob("test*/test_*.py")) or any(f.glob("test_*.py")) or any(f.glob("*/tests/test_*.py")):
+    if any((f / n).exists() for n in ("pytest.ini", "conftest.py", "tox.ini")) or pytest_configured(f) or \
+            any(f.glob("test*/test_*.py")) or any(f.glob("test_*.py")) or any(f.glob("*/tests/test_*.py")) or \
+            any(f.glob("test*/**/test_*.py")):
         return ("python" if WINDOWS else "python3") + " -m pytest -q"
     return ""
+
+
+def pytest_configured(folder: Path) -> bool:
+    """pytest's own settings table in pyproject.toml ([tool.pytest.ini_options]) or setup.cfg ([tool:pytest]).
+    A plain text check: Python 3.10 has no tomllib."""
+    for name, header in (("pyproject.toml", r"^\s*\[tool\.pytest\.ini_options\]"), ("setup.cfg", r"^\s*\[tool:pytest\]")):
+        try:
+            if re.search(header, (Path(folder) / name).read_text(encoding="utf-8", errors="replace"), re.M):
+                return True
+        except OSError:
+            pass
+    return False
 
 
 def jvm_test_command(folder: Path) -> str:

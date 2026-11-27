@@ -3,8 +3,45 @@
 What changed in each Bite release, newest first. Numbers link to the pull request on
 github.com/connabyss/bite. Install or update: `pipx install --force bite-check --pip-args="--no-cache-dir"`.
 
-## Unreleased
+## 1.0.9 (2026-11-23)
 
+Thanks to [@abhishekrajv7-cmd](https://github.com/abhishekrajv7-cmd) for five pull requests (#234, #235, #247,
+#255, #256), to [@TheLioN25](https://github.com/TheLioN25) for the cat in the terminal (#258), and to
+[@jeelthacker1](https://github.com/jeelthacker1) for picking up the pytest fix first (#251).
+
+- Python projects that keep pytest's settings in `pyproject.toml` (`[tool.pytest.ini_options]`) or `setup.cfg`
+  (`[tool:pytest]`), or put their tests in deeper folders like `tests/unit/`, no longer get "no test command
+  found": Bite runs pytest (#251).
+- A Bite-proof run shows the Bite cat in your terminal (#258), and the report page has the cat as its browser tab
+  icon (#256).
+- Messages say "1 file" and "1 change" instead of "1 files" and "1 changes" (#255).
+- `--jobs 0` and `--suspects 0` are refused with a plain message instead of quietly doing something else (#234,
+  #247), and `bite mcp` refuses an option it doesn't know (exit code 2) instead of starting the server (#235).
+- Fewer false alarms: when the tests a commit added never run under your test command (pytest's `testpaths`
+  leaves them out, or vitest or jest never lists them), Bite now says so instead of "its tests didn't notice". And
+  it keeps your test runner's settings (`jest.config.*`, `vitest.config.*`, `playwright.config.*`) in place when it
+  takes a change out, so a commit that pointed the runner at its new tests still gets them run. Found by running
+  Bite on 220 public repos: 9 of its 30 flags there were these two mistakes.
+- Check a project straight from its link: `bite --free https://github.com/pallets/click` clones it into a folder
+  of Bite's own (GitHub, GitLab, Codeberg, Bitbucket, or any `.git` address) and checks it. A second run only
+  downloads what's new.
+- Try Bite with no install: an "Open in GitHub Codespaces" button in the README opens a terminal in the browser
+  with Bite installed (`.devcontainer/devcontainer.json`).
+- Two Claude Code plugins now: `fixed-or-not@bite` (the skill and `/bite`, the one submitted to Claude's plugin
+  directory) and `bite-check@bite` (the automatic Stop-hook check, in `plugin-live/`).
+- The Claude Code plugin is now `bite-check` (install: `/plugin install bite-check@bite`; old `bite@bite` installs move
+  over by themselves). Its Stop hook is a node file, so it starts the same way on Windows, and stays quiet if Bite
+  isn't installed. `/bite` asks Claude to run `bite live` instead of running shell inside the command.
+- The Claude Code plugin is ready for Claude's plugin directory: it now ships the `bite-verify-fix` skill, its own
+  README (what it runs, reads and sends), an icon, and version 0.2.0.
+- A `CITATION.cff`, so GitHub shows a "Cite this repository" button.
+- A free agent skill, `skills/bite-verify-fix`: it teaches any coding AI that reads Agent Skills to run
+  `bite live` before it says "fixed". Install it with `npx skills add connabyss/bite`, or find it
+  [on Agensi](https://www.agensi.io/skills/bite-verify-ai-fixes).
+- Releases are automatic: merging a pull request that bumps the version in pyproject.toml publishes the drafted
+  release notes and puts the new version on PyPI. Every other merge only updates the draft.
+- The link check reads links into Bite's own main branch from the pull request's files, so a new page can be
+  linked in the same pull request that adds it.
 - Fixed broken links: the emoji key on the contributors page, the old Marketplace link for the GitHub Action,
   and a contributor's old profile name. A new weekly link check (`.github/workflows/links.yml`) fails when any
   link in the docs stops loading.
@@ -43,7 +80,7 @@ Also:
 ## 1.0.7 (2026-11-06)
 
 Thanks to [@SatriaBagusNurhadianto](https://github.com/SatriaBagusNurhadianto) and
-[@hamid-digitalmarketer](https://github.com/hamid-digitalmarketer) for their first pull requests, put together
+hamid-digitalmarketer for their first pull requests, put together
 in #218, and to [@zheng-guannan577](https://github.com/zheng-guannan577) for their first pull request (#193):
 
 - On a repository with fewer commits than `--last`, Bite says "1 commit changed code in all 2 commits." instead

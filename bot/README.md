@@ -13,7 +13,7 @@ filled in for the repo's main language; the owner reads it and clicks **Commit c
   script uses only Python's standard library and the `openssl` command.
 - Installs on more than 10 repos at once get no issues, so nobody gets flooded. A repo never gets a second issue,
   even after the first is closed.
-- Try it safely: Actions, **bot**, **Run workflow** with "Only print what it would post" ticked (the default).
+- Try it safely: Actions, **bot**, **Run workflow** with "Only print what it would post" checked (the default).
 
 ## If the key leaks
 

@@ -1,4 +1,4 @@
-"""bot/pr_checklist.py, the check that reminds about unticked boxes in the pull request description, without ever failing."""
+"""bot/pr_checklist.py, the check that reminds about unchecked boxes in the pull request description, without ever failing."""
 
 import json
 import os
@@ -14,10 +14,10 @@ TEMPLATE = (KIT / ".github" / "pull_request_template.md").read_text(encoding="ut
 
 
 def test_the_template_as_opened_lists_every_box():
-    assert len(problems(TEMPLATE)) == 3
+    assert len(problems(TEMPLATE)) == 4
 
 
-def test_all_ticked_is_green():
+def test_all_checked_is_green():
     assert problems(TEMPLATE.replace("- [ ]", "- [x]")) == []
 
 
@@ -50,7 +50,7 @@ def run(tmp_path, body, user_type="User"):
                           env={"GITHUB_EVENT_PATH": str(event), "SYSTEMROOT": os.environ.get("SYSTEMROOT", "")})
 
 
-def test_the_step_never_fails_and_warns_about_the_unticked_box(tmp_path):
+def test_the_step_never_fails_and_warns_about_the_unchecked_box(tmp_path):
     r = run(tmp_path, "- [x] test\n- [ ] CI is green")
     assert r.returncode == 0 and "::warning::CI is green" in r.stdout and "::error::" not in r.stdout
 
@@ -60,7 +60,7 @@ def test_the_step_passes_with_no_checklist_at_all(tmp_path):
     assert r.returncode == 0 and "::warning::" in r.stdout
 
 
-def test_the_step_passes_when_ticked(tmp_path):
+def test_the_step_passes_when_checked(tmp_path):
     assert run(tmp_path, "- [x] test\n- [x] CI is green").returncode == 0
 
 

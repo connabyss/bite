@@ -342,10 +342,10 @@ root = make_repo()
 (root / ".bite.ini").write_text(f"[kit]\ntest_command = {PY} -m unittest -q\nallowed_programs = {PY}\n"
                                 "test_covers = calc.py, test_*\n")
 (root / "view.py").write_text("COLOR = 'red'\n")
-commit(root, "Fix the panel colour in the view" + CLAUDE)
+commit(root, "Fix the panel color in the view" + CLAUDE)
 rc, out = run(root, ["--free"], fake_worker())
 check("test_covers: a commit outside the tests' reach is listed, not checked",
-      "outside the tests' reach" in out and "the panel colour" not in out and "Fix clamp" in out)
+      "outside the tests' reach" in out and "the panel color" not in out and "Fix clamp" in out)
 
 # A test runner only notices its own language: pytest passing with a TypeScript change taken out says nothing.
 check("the test command's language: pytest is Python, npm test is JavaScript, make is unknown",
@@ -676,8 +676,11 @@ rc, out = run(root, ["--free"], fake_worker())
 page = (root / "bite_proof" / "report.html").read_text(encoding="utf-8") if rc == 0 else ""
 check("report: report.html is written and named at the end of a run", "report.html" in out and "<table>" in page)
 check("report: a commit nobody's test guards is shown as such", "No test noticed it was gone" in page)
+check("report: the page says it is in English, so screen readers read it right", '<html lang="en">' in page)
 check("report: the Bite logo sits next to the page title (#89)",
       "<h1><img " in page and "bite-avatar.png" in page.split("</h1>")[0])
+check("report: the browser tab has the Bite cat as its icon (#201)",
+      '<link rel="icon"' in page and 'href="data:image/svg+xml,' in page)
 note = (root / "bite_proof" / "COMMENT.md").read_text(encoding="utf-8") if rc == 0 else ""
 check("comment: the pull request comment leads with a plain verdict and what to do",
       note.startswith(f"<!-- bite-check -->\n### {recent.CAT} ⚠️ Bite: no test noticed 3 changes") and "**Next:**" in note
@@ -716,7 +719,7 @@ notes["no tests ran"] = recent.write_comment(root, [dict(c1, undo="no tests ran 
 check("comment: no tests ran is a warning, not a calm dash", f"### {recent.CAT} ⚠️ Bite: no tests found" in notes["no tests ran"])
 notes["tests fail"] = newest_fails
 check("comment: a commit set aside on purpose says skipped, not couldn't check",
-      "Skipped: a tidy-up" in recent.write_comment(root, [dict(c1, undo="not flagged: a tidy-up (no behaviour change meant)")]).read_text(encoding="utf-8"))
+      "Skipped: a tidy-up" in recent.write_comment(root, [dict(c1, undo="not flagged: a tidy-up (no behavior change meant)")]).read_text(encoding="utf-8"))
 # A long commit title is shown whole in the comment, and cut at a word with "…" in the terminal (#71 showed "…the t").
 long_title = "Bite checks Bite: an issue for each gap, and a pull request with the test that closes it"
 check("comment: a long commit title is shown whole, not cut mid-word",

@@ -8,6 +8,9 @@ Bite: did your coding agent's recent "done" commits really do what they said?
                               project, plain bite does the same
     bite --free path/to/repo  check that project without going into its folder first (you can drag the folder
                               into the terminal window to type its path)
+    bite --free https://github.com/pallets/click
+                              check a project on GitHub, GitLab, Codeberg or Bitbucket straight from its link:
+                              Bite clones it into a folder of its own first (and runs its tests, so its code)
     bite --demo comeback      see the comeback alarm: a later commit quietly undoes a fix, and Bite names it
     bite --last 80 --suspects 3 --budget 1.00
     bite --serious            only fix claims about data, money, logins, security, crashes or leaks
@@ -89,6 +92,7 @@ import tarfile
 import tempfile
 import threading
 import time
+import urllib.parse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -107,11 +111,11 @@ SPENT = [0.0]
 PLATFORM_WORDS = {"win": r"windows|win32|powershell|ntfs|max_path|userprofile|\.ps1\b|cmd\.exe",
                   "mac": r"macos|mac os|darwin|apfs|osx", "linux": r"linux"}
 HERE = "win" if sys.platform.startswith("win") else "mac" if sys.platform == "darwin" else "linux"
-# Tidy-up commits: nothing in them is meant to change behaviour, so "nothing fails without it" isn't news.
+# Tidy-up commits: nothing in them is meant to change behavior, so "nothing fails without it" isn't news.
 TIDY = re.compile(r"^(chore|style|ci|refactor|build|docs?|tests?)(\([^)]*\))?!?:|^(refactor\w*|renam\w*|clean(s|ed)? ?up|docs?|"
                   r"document\w*)\b|\b(lint|mypy|pyright|tidy|tidies|sort(ed)? imports|"
                   r"reformat\w*|formatting|whitespace|typos?)\b", re.I)
-# Releases: "Release 1.0.154", "Bump version to 12.2.0", "v2.3.1". They change the version number, not behaviour.
+# Releases: "Release 1.0.154", "Bump version to 12.2.0", "v2.3.1". They change the version number, not behavior.
 RELEASE = re.compile(r"^(?:(?:release|releasing|prepare release|bump(?:ed|s)?(?: the)? version(?: to)?|version)\s+)?v?\d+(?:\.\d+)+\s*$", re.I)
 # A change for another Python version can't be checked on this one ("py3.8 fix", "for Python 3.14"); "3.12+" covers later ones.
 PY_VERSION = re.compile(r"\b(?:py(?:thon)?\s?|for |drop(?:s|ped|ping)? |on )3\.(\d{1,2})\b(\+| and (?:later|newer|up))?")
@@ -457,7 +461,8 @@ def files_of(root: Path, c: dict, cfg) -> None:
     said = c["subject"] + " " + re.sub(r"(?im)^[\w-]+-by:.*$", "", c["body"])[:400]
     c["serious"] = claims and bool(MATTERS.search(said))
     c["skip"] = skip_reason(c["subject"], said, code_text(root, c)) or go_os_only(c["code"])
-    c["test_code"] = [n for n in c["tests"] if Path(n).suffix.lower() in repo.CODE_SUFFIXES]
+    c["test_code"] = [n for n in c["tests"] if Path(n).suffix.lower() in repo.CODE_SUFFIXES
+                      and not bite.TEST_SETTINGS.search(n.replace("\\", "/"))]  # jest.config.js runs no test itself
     # No test is suspect, and so is a new test (it may check nothing the change did): the free pass tells which.
     c["score"] = ((3 if claims else 0) + (2 if not c["tests"] or c["test_code"] else 0) + (1 if 0 < c["lines"] <= 80 else 0)
                   + (2 if MATTERS.search(said) else 0))
@@ -476,6 +481,11 @@ def export(root: Path, sha: str, cfg) -> Path:
             shutil.rmtree(p, ignore_errors=True) if p.is_dir() else None
     repo.link_node_modules(root, dest)  # after the loop above, which would otherwise remove what the links point to
     return dest
+
+
+def plural(n: int, word: str) -> str:
+    """One commit, two commits: no "(s)" for a newcomer to decode."""
+    return f"{n} {word}" + ("" if n == 1 else "s")
 
 
 SUB_WARNED = set()
@@ -511,7 +521,9 @@ def submodule_fill(root: Path, dest: Path, sha: str) -> int:
             left.append(path)
     if left and str(root) not in SUB_WARNED:
         SUB_WARNED.add(str(root))
-        print(f"  note: {len(left)} git submodule(s) aren't checked out, so Bite's copies don't have them (e.g. "
+        sub = plural(len(left), "git submodule")
+        verb = "isn't" if len(left) == 1 else "aren't"
+        print(f"  note: {sub} {verb} checked out, so Bite's copies don't have them (e.g. "
               f"{left[0]}): run `git submodule update --init` so tests that read them work there.", flush=True)
     return len(left)
 
@@ -566,7 +578,9 @@ def lfs_fill(root: Path, dest: Path, tar: bytes) -> int:
             left.append(name)
     if left and str(root) not in LFS_WARNED:
         LFS_WARNED.add(str(root))
-        print(f"  note: {len(left)} Git LFS file(s) are only pointer files in Bite's copies (e.g. {left[0]}): install "
+        files = plural(len(left), "Git LFS file")
+        verb = "is only a pointer file" if len(left) == 1 else "are only pointer files"
+        print(f"  note: {files} {verb} in Bite's copies (e.g. {left[0]}): install "
               "git-lfs and run `git lfs pull` so tests that read them work there.")
     return len(left)
 
@@ -1066,11 +1080,6 @@ def spelled(secs: float) -> str:
     return f"{secs // 60} min" + (f" {secs % 60} sec" if secs % 60 else "")
 
 
-def plural(n: int, word: str) -> str:
-    """One commit, two commits: no "(s)" for a newcomer to decode."""
-    return f"{n} {word}" + ("" if n == 1 else "s")
-
-
 def _timed(fcfg, folder) -> dict:
     """bite.run_tests, counted in the "still running" lines while it goes on."""
     me = object()
@@ -1285,6 +1294,9 @@ def check_undo(root: Path, c: dict, cfg) -> str:
         def flag():  # would be flagged: first rule out the usual harmless reasons
             if c.get("skip"):
                 return f"not flagged: {c['skip']}"
+            unrun = c.get("test_code") and own_tests_not_run(root, c, fcfg, folder, now["out"])
+            if unrun:
+                return f"not flagged: your test command never runs its test `{unrun}`, so that test can't notice anything"
             if c.get("test_code") and not tests_touch(root, c):
                 return "not flagged: its tests are about other code"
             skipped = c.get("test_code") and own_test_skipped(root, c, undone["out"])
@@ -1725,7 +1737,7 @@ Run on the code at that commit, the test fails like this:
 ---
 Answer strictly. Is this a fair test of what the commit claimed (it doesn't ask for more than the claim or the
 change's evident intent), and does it fail because the code really doesn't do what was claimed (not because the
-test is wrong, uses a wrong API, or expects behaviour nobody promised)?
+test is wrong, uses a wrong API, or expects behavior nobody promised)?
 Then, if REAL, how much it matters: +1 each for: real users would hit it; it loses or corrupts data or money;
 it would be embarrassing if a user found it.
 Reply with one line of JSON only: {{"verdict": "REAL" or "NOT", "matters": 0-3, "bug": "<the false claim in one plain sentence>",
@@ -1901,6 +1913,53 @@ def added_inside(root: Path, c: dict, name: str) -> bool:
     return False
 
 
+def pytest_roots(cmd: str, folder: Path):
+    """The folders a pytest command collects from: the ones it names, else its settings' testpaths. [] means
+    everywhere; None means a pattern or a variable, which can't be matched against a file."""
+    roots = [t.strip("\"'").rstrip("/") for t in cmd.split()[1:] if not t.startswith("-")
+             and (folder / t.strip("\"'")).is_dir() and t.strip("\"'") not in (".", "./")]
+    if not roots:  # no folder named: pytest runs its settings' testpaths, or everything
+        for n in ("pytest.ini", "pyproject.toml", "tox.ini", "setup.cfg"):
+            text = (folder / n).read_text(encoding="utf-8", errors="replace") if (folder / n).is_file() else ""
+            m = re.search(r"(?m)^\s*testpaths\s*=\s*(\[[^\]]*\]|.*)$", text)
+            if m:
+                roots = [r.strip("/") for r in re.split(r"[\s,]+", re.sub(r"[\[\]\"']", " ", m.group(1))) if r]
+                if not roots or any(ch in "".join(roots) for ch in "*?{$"):
+                    return None
+                break
+    return roots
+
+
+JS_TEST_FILE = re.compile(r"[\w.-]+\.(?:test|spec)\.[cm]?[jt]sx?\b")
+JS_SUMMARY = re.compile(r"(?m)^\s*(?:Test Files\s+\d|Test Suites:)")  # vitest's and jest's closing lines
+
+
+def own_tests_not_run(root: Path, c: dict, fcfg, folder: Path, out: str) -> str:
+    """The commit's own test file, when the project's test command never runs any of them, else ''. Such tests
+    can't notice anything, so "its tests didn't notice" would blame the wrong thing: weyenk/lhr's root vitest
+    config excludes apps/lhr-office/**, and four commits there added tests only under it. pytest: the file is
+    outside every folder the command collects from (testpaths). vitest and jest: their output names the test
+    files they ran, and none of this commit's is among them."""
+    files = [t.replace("\\", "/") for t in c.get("test_code") or [] if (Path(folder) / t).is_file()]
+    if not files:
+        return ""
+    cmd = bite.tests_cmd(fcfg)
+    if PYTEST_RUNNER.search(cmd):
+        roots = pytest_roots(cmd, Path(folder))
+        if not roots:
+            return ""
+        out_of_reach = [f for f in files if not any(f == r or f.startswith(r + "/") for r in roots)]
+        return out_of_reach[0] if len(out_of_reach) == len(files) else ""
+    out = re.sub(r"\x1b\[[0-9;]*m", "", out)  # vitest colors its output even into a pipe
+    if not JS_SUMMARY.search(out):
+        return ""
+    ran = set(JS_TEST_FILE.findall(out))
+    mine = [f for f in files if JS_TEST_FILE.fullmatch(f.rsplit("/", 1)[-1])]
+    if not ran or not mine or len(mine) < len(files):
+        return ""  # the output lists no test file (another reporter), or the commit's tests aren't named like one
+    return "" if any(f.rsplit("/", 1)[-1] in ran for f in mine) else mine[0]
+
+
 def own_tests(fcfg, folder: Path, c: dict):
     """A copy of fcfg whose test command runs only the pytest files this commit added or changed, or None when
     that isn't safe to tell: not pytest, tests in a box, no such file, or a file the project's own command might
@@ -1911,17 +1970,9 @@ def own_tests(fcfg, folder: Path, c: dict):
     files = [t for t in c.get("test_code") or [] if PYTEST_FILE.search(t) and (Path(folder) / t).is_file()]
     if not files or len(files) > 20:
         return None
-    roots = [t.strip("\"'").rstrip("/") for t in cmd.split()[1:] if not t.startswith("-")
-             and (Path(folder) / t.strip("\"'")).is_dir() and t.strip("\"'") not in (".", "./")]
-    if not roots:  # no folder named: pytest runs its settings' testpaths, or everything
-        for n in ("pytest.ini", "pyproject.toml", "tox.ini", "setup.cfg"):
-            text = (Path(folder) / n).read_text(encoding="utf-8", errors="replace") if (Path(folder) / n).is_file() else ""
-            m = re.search(r"(?m)^\s*testpaths\s*=\s*(\[[^\]]*\]|.*)$", text)
-            if m:
-                roots = [r.strip("/") for r in re.split(r"[\s,]+", re.sub(r"[\[\]\"']", " ", m.group(1))) if r]
-                if not roots or any(ch in "".join(roots) for ch in "*?{$"):
-                    return None  # a pattern or a variable: not something to match a file against
-                break
+    roots = pytest_roots(cmd, Path(folder))
+    if roots is None:
+        return None
     if roots and not all(any(f == r or f.startswith(r + "/") for r in roots) for f in files):
         return None
     sub = at(fcfg, folder)
@@ -2146,7 +2197,7 @@ It passes with the change in. With the change taken out, it fails like this:
 ---
 Answer strictly. Is this a fair test of what the change does (it tests only this change, through the code's
 normal way in, and asks for nothing the change and its message don't evidently mean), and does it fail because
-the change's behaviour is gone (not because of a wrong API, a typo, or a detail nobody relies on)?
+the change's behavior is gone (not because of a wrong API, a typo, or a detail nobody relies on)?
 Reply with one line of JSON only: {{"verdict": "FAIR" or "NOT", "why": "<one sentence>"}}"""
 
 
@@ -2409,7 +2460,7 @@ def score(kinds: list) -> tuple[int, int]:
 
 
 def score_color(n: int, total: int) -> str:
-    """shields.io colour for a score: green when every change was noticed, then yellow-green, yellow, orange, red."""
+    """shields.io color for a score: green when every change was noticed, then yellow-green, yellow, orange, red."""
     r = n / total if total else 0
     return "brightgreen" if n == total else "yellowgreen" if r >= .75 else "yellow" if r >= .5 else "orange" if r >= .25 else "red"
 
@@ -2501,6 +2552,16 @@ CAT_SVG = ('<defs><mask id="m"><rect width="200" height="200" fill="white"/><pat
            'Q130 117 146 98 Z"/><ellipse cx="75" cy="101" rx="2.6" ry="9" fill="#141118"/><ellipse cx="125" cy="101" '
            'rx="2.6" ry="9" fill="#141118"/><path fill="#e88a96" d="M95 122 L105 122 L100 128 Z"/>'
            '<path fill="#fbf8ee" d="M104.5 136.5 L112 136 L108 149 Z"/>')
+# data: URI of the cat for the browser tab icon in report.html (works offline).
+CAT_ICON = "data:image/svg+xml," + urllib.parse.quote(
+    f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 14 160 166">{CAT_SVG}</svg>'
+)
+# The cat in plain ASCII for a Bite-proof terminal run (assets/bite-logo.svg: pointy ears, one fang).
+CAT_ASCII = (
+    "   /\\_/\\\n"
+    "  ( o.o )\n"
+    "  =( v )="
+)
 
 
 def write_card(root: Path, n: int, total: int, trend_line: str = "") -> Path | None:
@@ -2511,19 +2572,20 @@ def write_card(root: Path, n: int, total: int, trend_line: str = "") -> Path | N
         return None
     e = html.escape
     arc, done = 2 * 3.14159 * 150, n == total
-    colour = "#5fbf86" if done else "#e0a84a"
+    color = "#5fbf86" if done else "#e0a84a"
     words = ("Every change Bite checked had a test that noticed it." if done else
-             f"A test noticed {n} of the {total} changes Bite checked.")
+             ("No test noticed the one change Bite checked." if total == 1 else
+              f"A test noticed {n} of the {total} changes Bite checked."))
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img"
  aria-label="Bite score for {e(root.name)}: {n} of {total} changes noticed by a test">
 <rect width="1200" height="630" fill="#161615"/>
 <g transform="translate(225 315)"><circle r="150" fill="#22211f" stroke="#2c2b29" stroke-width="28"/>
-<circle r="150" fill="none" stroke="{colour}" stroke-width="28" stroke-linecap="round" transform="rotate(-90)"
+<circle r="150" fill="none" stroke="{color}" stroke-width="28" stroke-linecap="round" transform="rotate(-90)"
  stroke-dasharray="{arc * n / total:.1f} {arc:.1f}"/>
 <svg x="-80" y="-84" width="160" height="166" viewBox="20 14 160 166">{CAT_SVG}</svg></g>
 <g font-family="system-ui,-apple-system,'Segoe UI',sans-serif" fill="#ecebe6">
 <text x="450" y="150" font-size="34" fill="#9a9992">Bite score · {e(root.name[:40])}</text>
-<text x="442" y="320" font-size="{190 if len(f"{n}/{total}") <= 5 else 130}" font-weight="700" fill="{colour}">{n}/{total}</text>
+<text x="442" y="320" font-size="{190 if len(f"{n}/{total}") <= 5 else 130}" font-weight="700" fill="{color}">{n}/{total}</text>
 <text x="450" y="392" font-size="30">{e(words)}</text>
 {f'<text x="450" y="444" font-size="30" fill="{"#e0a84a" if trend_line.startswith("Down") else "#5fbf86"}">{e(trend_line)}</text>' if trend_line else ""}
 <text x="450" y="560" font-size="24" fill="#9a9992">{date.today().isoformat()} · if this change disappeared, would any test notice?</text>
@@ -2604,7 +2666,7 @@ def write_html(root: Path, cs: list, tried: list, seconds: float, trend: dict | 
                 + '<br>'
                 + ("Every change Bite could check had a test that noticed it." if n == total else
                    f"{total - n} change{'' if total - n == 1 else 's'} could wander off and no test would say a word."
-                   if ROAST[0] else f"No test noticed any of the {total} changes Bite could check." if n == 0 else
+                   if ROAST[0] else ("No test noticed the one change Bite could check." if total == 1 else f"No test noticed any of the {total} changes Bite could check.") if n == 0 else
                    f"A test noticed {n} of the {total} changes Bite could check. The other {total - n} could break "
                    "quietly.")
                 + f'<div class="why">README badge: {badge_with_copy(score_badge(n, total))}'
@@ -2616,8 +2678,9 @@ def write_html(root: Path, cs: list, tried: list, seconds: float, trend: dict | 
         w, why = mw
         wanted = (f'<div class="wanted"><div class="tag">Most wanted</div><b><code>{sha(w["sha"])}</code> '
                   f'{e(w["subject"])}</b><div>If you write one test today, make it this one: {e(why)}.</div></div>')
-    page = f"""<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    page = f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bite report: {e(root.name)}</title>
+<link rel="icon" href="{CAT_ICON}">
 <style>
 :root{{--bg:#fbfaf7;--fg:#1d1d1b;--mute:#6b6a65;--line:#e4e1d8;--held:#2e7d4f;--gap:#b7791f;--odd:#c0392b;--skip:#8a8a85}}
 @media (prefers-color-scheme:dark){{:root{{--bg:#161615;--fg:#ecebe6;--mute:#9a9992;--line:#2c2b29;--held:#5fbf86;--gap:#e0a84a;--odd:#ef6b5b;--skip:#7d7c77}}}}
@@ -2688,7 +2751,7 @@ CAT = ('<img src="https://raw.githubusercontent.com/connabyss/bite/main/assets/b
        'width="24" height="24" alt="Bite" align="top">')
 
 
-# The code fence's language for a written test, so GitHub colours it.
+# The code fence's language for a written test, so GitHub colors it.
 FENCE_LANG = {".py": "python", ".js": "js", ".mjs": "js", ".cjs": "js", ".ts": "ts", ".tsx": "tsx", ".jsx": "jsx",
               ".rs": "rust", ".go": "go", ".cs": "csharp", ".java": "java", ".kt": "kotlin"}
 
@@ -3284,6 +3347,20 @@ def main(argv=None):
         elif folder is None and not argv[i].startswith("-") and Path(argv[i].strip("\"'")).is_dir():
             # The project's folder, so nobody has to cd first: dragging a folder into the window types its path.
             folder = argv.pop(i).strip("\"'")
+        elif folder is None and not argv[i].startswith("-") and repo.remote_url(argv[i]):
+            # A link to a project on the web, copied from the browser: clone it into a folder of Bite's own first.
+            url = repo.remote_url(argv.pop(i))
+            print(f"Bite: getting {url} (only the first time takes a while) ...", flush=True)
+            got, why = repo.clone(url)
+            if got is None:
+                print(f"Bite: {why}")
+                return 1
+            if why:
+                print(f"  {why}.")
+            print(f"  Its copy is in {got}. Bite runs that project's tests there, so it runs its code on this\n"
+                  "  computer: check only projects you'd run yourself. Their tests may need its own setup first\n"
+                  "  (pip install -e ., npm install, ...): Bite says so when they fail.", flush=True)
+            folder = str(got)
         elif i and argv[i - 1] == "--demo" and not argv[i].startswith("-"):
             print(f"Bite: there's no demo called {argv[i]!r}. Try bite --demo, or bite --demo comeback.")
             return 2
@@ -3555,7 +3632,9 @@ def main(argv=None):
               flush=True)
     unsplit = [c for c in free if c.get("parts_skipped")]
     if unsplit:
-        print(f"  {len(unsplit)} noticed commit(s) weren't checked piece by piece: that check used its "
+        noticed_commits = plural(len(unsplit), "noticed commit")
+        verb = "wasn't" if len(unsplit) == 1 else "weren't"
+        print(f"  {noticed_commits} {verb} checked piece by piece: that check used its "
               f"{opt('--part-runs', 6)} test runs (--part-runs N allows more).", flush=True)
     cs.sort(key=lambda c: -c["score"])
     found, tried = [], []
@@ -3637,10 +3716,17 @@ def main(argv=None):
     if total:
         tw = trend_words(n, total, trend)
         write_card(root, n, total, tw[0].upper() + tw[1:] if tw else "")
-        print(f"Bite score: {n}/{total} (a test noticed {n} of the {total} changes Bite could check)."
+        score_desc = (
+            ("a test noticed the one change" if n == 1 else "no test noticed the one change")
+            if total == 1
+            else f"a test noticed {n} of the {total} changes"
+        )
+        print(f"Bite score: {n}/{total} ({score_desc} Bite could check)."
               + (f" {tw[0].upper() + tw[1:]}." if tw else "")
               + (f"\nScore badge for your README: {score_badge(n, total)}" if n < total else ""))
     if bite_proof([say(c)[0] for c in checked], tried):
+        if not JSON_RUN[0]:
+            print(f"\n{CAT_ASCII}")
         print(f"\nBite-proof. Nice work. Every change Bite checked had a test that noticed it.\n"
               f"Badge for your README: {BADGE}")
     if flagged:

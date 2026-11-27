@@ -14,8 +14,14 @@ It takes each fix back out of a copy of your project and runs your tests. Free, 
 [![Python](https://img.shields.io/badge/python-3.10%2B-24292f)](https://pypi.org/project/bite-check/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/connabyss/bite/tests.yml?branch=main&label=tests)](https://github.com/connabyss/bite/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-24292f)](https://github.com/connabyss/bite/blob/main/LICENSE)
+[![connabyss/bite MCP server](https://glama.ai/mcp/servers/connabyss/bite/badges/score.svg)](https://glama.ai/mcp/servers/connabyss/bite)
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/connabyss/bite?quickstart=1)<br>
+<sub>Try it in your browser, no install</sub>
 
 [Try it](#try-it-now) · [Install guide](https://github.com/connabyss/bite/blob/main/docs/install.md) · [GitHub Action](https://github.com/connabyss/bite/blob/main/docs/pull-requests.md) · [Changelog](https://github.com/connabyss/bite/blob/main/CHANGELOG.md) · [Discussions](https://github.com/connabyss/bite/discussions) · [Contribute](https://github.com/connabyss/bite/blob/main/CONTRIBUTING.md)
+
+<sub>Read this in: [Tiếng Việt](https://github.com/connabyss/bite/blob/main/docs/i18n/README.vi.md) · [Español](https://github.com/connabyss/bite/blob/main/docs/i18n/README.es.md) · [简体中文](https://github.com/connabyss/bite/blob/main/docs/i18n/README.zh-CN.md)</sub>
 
 </div>
 
@@ -35,6 +41,15 @@ python -m bite_check --free
 
 Outside a project, Bite first shows a demo on a tiny made-up one. To check your own project, type the second line
 and a space, drag your project's folder into the window (that types its path), and press Enter.
+
+**No install at all:** [open Bite in GitHub Codespaces](https://codespaces.new/connabyss/bite?quickstart=1)
+(the button at the top) opens a terminal in your browser with Bite already installed. Type `bite --demo`, or check a famous project
+straight from its link: `bite --free https://github.com/pallets/click`. (Codespaces runs on your GitHub account's
+free monthly hours.)
+
+Any project on GitHub, GitLab, Codeberg or Bitbucket works from its link, on your own computer too:
+`python -m bite_check --free https://github.com/OWNER/NAME`. Bite clones it into a folder of its own and runs its
+tests there, which runs that project's code, so check only projects you'd run yourself.
 
 Other ways: `pipx run bite-check --free` or `uvx bite-check --free` (one line, no install; on Linux or a Mac, use one
 of these if pip says "externally managed"). Commits never say "fix"? Add `--any`. To keep a `bite` command installed:
@@ -74,8 +89,9 @@ How Bite differs from coverage and mutation testing: [Bite, mutmut and coverage]
 | What | How | More |
 |---|---|---|
 | Check every pull request | Add the GitHub Action (below) or the [bite-check app](https://github.com/apps/bite-check) | [Pull requests](https://github.com/connabyss/bite/blob/main/docs/pull-requests.md) |
-| Check Claude's "fixed" the moment it says it | `/plugin marketplace add connabyss/bite`, then `/plugin install bite@bite` | [Live checks](https://github.com/connabyss/bite/blob/main/docs/live.md) |
+| Check Claude's "fixed" the moment it says it | `/plugin marketplace add connabyss/bite`, then `/plugin install bite-check@bite` (and `fixed-or-not@bite` for the skill and `/bite`) | [Live checks](https://github.com/connabyss/bite/blob/main/docs/live.md) |
 | Same, in Cursor, Copilot, Codex, Windsurf, Gemini CLI | `bite mcp` | [Live checks](https://github.com/connabyss/bite/blob/main/docs/live.md#check-the-fixed-live-in-any-coding-ai) |
+| Teach any coding AI to prove its fixes (a free skill) | `npx skills add connabyss/bite` | [The skill](https://github.com/connabyss/bite/blob/main/skills/bite-verify-fix/SKILL.md) · also [on Agensi](https://www.agensi.io/skills/bite-verify-ai-fixes) |
 | Ask in plain words | `bite ask "is last week's login fix guarded?"` | [Ask](https://github.com/connabyss/bite/blob/main/docs/ask.md) |
 | Catch a fix a later commit quietly undid | Built into every free check | [Comeback alarm](https://github.com/connabyss/bite/blob/main/docs/comeback.md) |
 | Write the missing test (your own key) | `bite --write-tests` | [Write tests](https://github.com/connabyss/bite/blob/main/docs/pull-requests.md#have-bite-write-the-missing-test-opt-in-your-own-key) |
@@ -102,7 +118,7 @@ jobs:
       # install what your tests need here, e.g. for Python:
       - uses: actions/setup-python@v7
       - run: python -m pip install pytest -r requirements.txt
-      - uses: connabyss/bite@v1.0.8
+      - uses: connabyss/bite@v1.0.9
 ```
 
 **The paid step (optional).** With your own Anthropic API key, Bite writes one small test of a commit's exact
@@ -187,15 +203,17 @@ Thank you to everyone who has helped make Bite. Want to be here? Pick a
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/snehaapratap"><img src="https://avatars.githubusercontent.com/u/170080122?v=4?s=80" width="80px;" alt="snehaapratap"/><br /><sub><b>snehaapratap</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=snehaapratap" title="Code">💻</a></td>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/gauravjangra3165"><img src="https://avatars.githubusercontent.com/u/300753752?v=4?s=80" width="80px;" alt="gauravjangra3165"/><br /><sub><b>gauravjangra3165</b></sub></a><br /><a href="#infra-gauravjangra3165" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/bfs2021"><img src="https://avatars.githubusercontent.com/u/101915083?v=4?s=80" width="80px;" alt="bfs2021"/><br /><sub><b>bfs2021</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=bfs2021" title="Code">💻</a></td>
-      <td align="center" valign="top" width="16.66%"><a href="https://github.com/HarshRajSinghania"><img src="https://avatars.githubusercontent.com/u/40535627?v=4?s=80" width="80px;" alt="HarshRajSinghania"/><br /><sub><b>HarshRajSinghania</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=HarshRajSinghania" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><img src="https://avatars.githubusercontent.com/u/40535627?v=4?s=80" width="80px;" alt="HarshRajSinghania"/><br /><sub><b>HarshRajSinghania</b></sub><br /><a href="https://github.com/connabyss/bite/commits?author=HarshRajSinghania" title="Code">💻</a></td>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/hrithiksaini99"><img src="https://avatars.githubusercontent.com/u/49943287?v=4?s=80" width="80px;" alt="hrithiksaini99"/><br /><sub><b>hrithiksaini99</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=hrithiksaini99" title="Code">💻</a> <a href="https://github.com/connabyss/bite/commits?author=hrithiksaini99" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/The-Aizen-404"><img src="https://avatars.githubusercontent.com/u/245661236?v=4?s=80" width="80px;" alt="The-Aizen-404"/><br /><sub><b>The-Aizen-404</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=The-Aizen-404" title="Code">💻</a></td>
     </tr>
     <tr>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/SatriaBagusNurhadianto"><img src="https://avatars.githubusercontent.com/u/237350863?v=4?s=80" width="80px;" alt="SatriaBagusNurhadianto"/><br /><sub><b>SatriaBagusNurhadianto</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=SatriaBagusNurhadianto" title="Code">💻</a></td>
-      <td align="center" valign="top" width="16.66%"><a href="https://github.com/hamid-digitalmarketer"><img src="https://avatars.githubusercontent.com/u/341071524?v=4?s=80" width="80px;" alt="hamid-digitalmarketer"/><br /><sub><b>hamid-digitalmarketer</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=hamid-digitalmarketer" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><img src="https://avatars.githubusercontent.com/u/341071524?v=4?s=80" width="80px;" alt="hamid-digitalmarketer"/><br /><sub><b>hamid-digitalmarketer</b></sub><br /><a href="https://github.com/connabyss/bite/commits?author=hamid-digitalmarketer" title="Code">💻</a></td>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/zheng-guannan577"><img src="https://avatars.githubusercontent.com/u/349123998?v=4?s=80" width="80px;" alt="zheng-guannan577"/><br /><sub><b>zheng-guannan577</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=zheng-guannan577" title="Code">💻</a></td>
       <td align="center" valign="top" width="16.66%"><a href="https://github.com/AneesFathima-A"><img src="https://avatars.githubusercontent.com/u/158535421?v=4?s=80" width="80px;" alt="AneesFathima-A"/><br /><sub><b>AneesFathima-A</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=AneesFathima-A" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/abhishekrajv7-cmd"><img src="https://avatars.githubusercontent.com/u/319123761?v=4?s=80" width="80px;" alt="abhishekrajv7-cmd"/><br /><sub><b>abhishekrajv7-cmd</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=abhishekrajv7-cmd" title="Code">💻</a></td>
+      <td align="center" valign="top" width="16.66%"><a href="https://github.com/TheLioN25"><img src="https://avatars.githubusercontent.com/u/275329794?v=4?s=80" width="80px;" alt="TheLioN25"/><br /><sub><b>TheLioN25</b></sub></a><br /><a href="https://github.com/connabyss/bite/commits?author=TheLioN25" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
@@ -204,6 +222,24 @@ Thank you to everyone who has helped make Bite. Want to be here? Pick a
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
+
+## Want it done for you?
+
+Rather not set it up yourself? Email [connabyss.code@proton.me](mailto:connabyss.code@proton.me) with a link to your
+repo, and I'll run Bite on it and send you the report.
+
+## Sponsors
+
+Bite is free and stays free. If it saved you from a false "fixed", you can
+[sponsor its maker](https://github.com/sponsors/connabyss) and keep it improving.
+
+<!-- Sponsor rewards, kept by the maintainer (the tiers on github.com/sponsors/connabyss promise these):
+     $10 a month: the sponsor's name goes on the connabyss profile front page (connabyss/connabyss README)
+     and in the list below while they sponsor.
+     $5 one time, when the sponsor picked Bite: their name goes in the "Thank you" of the next release's notes (put it in the
+     first paragraph of that version's CHANGELOG.md section, which opens the release notes).
+     GitHub emails connabyss about each new sponsor. Remove a monthly name when they stop. -->
+Monthly sponsors: none yet. Be the first.
 
 ---
 

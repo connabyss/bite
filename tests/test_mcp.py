@@ -104,3 +104,14 @@ def test_anything_printed_during_a_check_stays_off_the_json(tmp_path):
                        capture_output=True, timeout=60)
     assert [json.loads(line)["id"] for line in p.stdout.decode("utf-8").splitlines()] == [5]
     assert b"noise" in p.stderr and b"raw noise" in p.stderr
+
+
+def test_unknown_option_errors_and_points_to_help(capsys):
+    assert bite_mcp.main(["--bogus"]) == 2
+    assert capsys.readouterr().out == "Bite: unknown option '--bogus'. Run bite mcp --help for the options.\n"
+
+
+def test_help_option_prints_help_and_exits_0(capsys):
+    assert bite_mcp.main(["--help"]) == 0
+    assert "bite mcp" in capsys.readouterr().out
+

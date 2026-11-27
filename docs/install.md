@@ -37,6 +37,21 @@ bite --free /path/to/your-repo
 (Or type `bite --free ` and drag the project's folder into the window. From inside the project's folder, plain
 `bite --free` works too.)
 
+A project you haven't cloned works from its link, as copied from the browser:
+
+```
+bite --free https://github.com/pallets/click
+```
+
+Bite clones it (GitHub, GitLab, Codeberg, Bitbucket, or any address ending in `.git`) into a `bite-projects`
+folder in your computer's temporary folder, and keeps it, so a second run only downloads what's new. It runs that
+project's tests there, which runs its code on your computer: check only projects you'd run yourself. If its tests
+need their own setup first (`pip install -e .`, `npm install`), Bite says the tests already fail; go into the
+folder it names, do the setup, and run Bite again.
+
+No Python on this computer? [Open Bite in GitHub Codespaces](https://codespaces.new/connabyss/bite?quickstart=1):
+a terminal in your browser with Bite installed, where both lines above work.
+
 `bite` now works in any terminal window. `bite --free` needs no key and costs nothing. It takes each recent
 change back out, runs your tests, and lists the changes no test guards, plus any new test that still passes
 without its commit's code (it tests nothing). If something it needs is missing, like git or pytest, it says

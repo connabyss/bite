@@ -1,8 +1,12 @@
 name: release-drafter
 
 # Keeps the next release's notes up to date as a draft on the Releases page (the rules are in
-# .github/release-drafter.yml). A draft is private and changes nothing: only pressing Publish on it makes a
-# release, and that starts the publish workflow (PyPI) as before.
+# .github/release-drafter.yml). A draft is private and changes nothing.
+#
+# Releasing is automatic, and merging is the only trigger: when a merge into main changes the version in
+# pyproject.toml to one with no tag yet, this publishes the draft as that release (opening with the first
+# paragraph of that version's CHANGELOG.md section), then starts the publish workflow, which puts it on PyPI.
+# Every other merge only updates the draft. Pressing Publish on the draft by hand still works too.
 on:
   push:
     branches: [main]
@@ -20,6 +24,9 @@ jobs:
     permissions:
       contents: write  # to write the draft release
       pull-requests: read
+    outputs:
+      released: ${{ steps.new.outputs.release }}
+      version: ${{ steps.v.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,10 +34,49 @@ jobs:
       # The draft is named after pyproject.toml's version, the same check the publish workflow makes.
       - id: v
         run: python3 -c "import tomllib; print('version=' + tomllib.load(open('pyproject.toml','rb'))['project']['version'])" >> "$GITHUB_OUTPUT"
+      # A version with no tag yet is a new release: publish the draft instead of only updating it.
+      - id: new
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.v.outputs.version }}
+        run: |
+          # Only a clear "not found" means new: any other error stops here, so a hiccup never re-releases.
+          if out=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>&1); then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          elif ! grep -q "HTTP 404" <<<"$out"; then
+            echo "::error::Couldn't tell whether $TAG exists: $out"
+            exit 1
+          else
+            echo "$TAG has no tag yet: releasing it."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "lead<<BITE_LEAD_END"
+              python3 .github/release_lead.py CHANGELOG.md "${{ steps.v.outputs.version }}"
+              echo "BITE_LEAD_END"
+            } >> "$GITHUB_OUTPUT"
+          fi
       - uses: release-drafter/release-drafter@72967cdc98ddd3160f1fc3dff619de365e137dd0  # v7.9.0
         with:
           version: ${{ steps.v.outputs.version }}
           tag: v${{ steps.v.outputs.version }}
           name: v${{ steps.v.outputs.version }}
+          commitish: ${{ github.sha }}
+          publish: ${{ steps.new.outputs.release }}
+          header: ${{ steps.new.outputs.lead }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
+  # A release made with this workflow's own token can't start another workflow by its "published" event (GitHub
+  # blocks that), but it can start one by name. Running publish on the new tag keeps PyPI's Trusted Publishing
+  # exactly as it is: same workflow file, same pypi environment.
+  pypi:
+    needs: draft
+    if: needs.draft.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write  # to start the publish workflow
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "v${{ needs.draft.outputs.version }}"

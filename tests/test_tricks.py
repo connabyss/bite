@@ -318,7 +318,7 @@ def test_quick_skips_the_piece_check(tmp_path):
 def test_the_piece_check_keeps_to_its_run_budget(tmp_path):
     root = bundled(tmp_path)
     r, err = run_with(root, "--part-runs", "1")  # the commit has 2 pieces: not enough runs left to split it
-    assert r["result"] == "noticed" and "weren't checked piece by piece" in err, (r, err)
+    assert r["result"] == "noticed" and "1 noticed commit wasn't checked piece by piece" in err, (r, err)
     r, _ = run_with(root, "--part-runs", "2")
     assert r["label"] == "PART NOT NOTICED", r
 
