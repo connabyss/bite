@@ -28,6 +28,7 @@ jobs:
           args: >-
             --config lychee.toml
             --remap '^https://github\.com/connabyss/bite/(?:blob|tree)/main/([^#?]*)(?:[#?].*)?$ file://${{ github.workspace }}/$1'
+            --remap '^https://raw\.githubusercontent\.com/connabyss/bite/main/([^#?]*)(?:[#?].*)?$ file://${{ github.workspace }}/$1'
             './**/*.md' '.github/ISSUE_TEMPLATE/*.yml' pyproject.toml
           fail: true
         env:
