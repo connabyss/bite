@@ -1,0 +1,37 @@
+name: dependabot auto-merge
+
+# Turns on auto-merge for Dependabot's grouped minor and patch updates (the "actions" and "python" groups in
+# .github/dependabot.yml), so they merge by themselves once the required checks on main pass. The repo setting
+# "Allow auto-merge" only permits this; something still has to switch it on for each pull request.
+# Major updates ("actions-major", "python-major") and anything else Dependabot opens stay for a person to review.
+# It never checks out or runs the pull request's code; it only flips the auto-merge switch.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  auto-merge:
+    if: >-
+      github.repository == 'connabyss/bite'
+      && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+    steps:
+      - run: |
+          set -euo pipefail
+          # Group branches are dependabot/<ecosystem>/<group>-<hash>. Only the minor/patch groups match:
+          # "actions-major-..." and "python-major-..." have "major" where the hash would be.
+          if ! [[ "$BRANCH" =~ ^dependabot/(github_actions/actions|pip/python)-[0-9a-f]+$ ]]; then
+            echo "$BRANCH is not a minor/patch group update; leaving it for review."
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_URL"
