@@ -2347,20 +2347,20 @@ def say_plain(c: dict, newest: str = "") -> tuple[str, str, str]:
                 f"If this change breaks later, "
                 f"{'that test' if one else 'they'} will warn you.")
     if u == "guard gone since":
+        files = ", ".join(f"`{t}`" for t in c.get("gone", [])[:3])
+        was_were = "was" if len(c.get("gone", [])) == 1 else "were"
+        caught_str = f" ({caught})" if caught else ""
         if ROAST[0]:
-            body = "The test that watched this fix was deleted later, so nothing catches it now. "
+            body = f"The test that watched this fix, {files or 'its test file'}, {was_were} deleted later, so nothing catches it now. "
         else:
-            files = ", ".join(f"`{t}`" for t in c.get("gone", [])[:3])
-            was_were = "was" if len(c.get("gone", [])) == 1 else "were"
-            caught_str = f" ({caught})" if caught else ""
             body = f"A test noticed it when it was made{caught_str}, but {files or 'test files'} {was_were} deleted later, and with it taken out of today's code every test still passes. "
         return ("gap", "⚠️ ITS TEST IS GONE", f"⚠️ {body}**Next:** put back a test that fails without it.")
     if u == "unguarded: part":
         caught_str = f" ({caught})" if caught else ""
+        part_str = c.get("part") or "all of it"
         if ROAST[0]:
-            body = f"Your tests noticed part of this change{caught_str}, but gave the rest a free pass: if that part breaks, nothing warns you. "
+            body = f"Your tests noticed part of this change{caught_str}, but gave {part_str} a free pass: if it breaks, nothing warns you. "
         else:
-            part_str = c.get("part") or "all of it"
             body = f"Your tests noticed part of this change{caught_str}, but not {part_str}: with only that part taken out, every test still passes. If it breaks later, nothing warns you. "
         return ("gap", "⚠️ PART NOT NOTICED", f"⚠️ {body}**Next:** add a test that fails without it.")
     flaky = (f"({c['flaky'].replace('`', '')} failed once without it, then passed: it fails now and then, so it can't "

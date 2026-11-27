@@ -12,12 +12,13 @@ def test_roast_lines_for_uncovered_results():
         _, label_plain, text_plain = recent.say(c_gone)
         assert label_plain == "⚠️ ITS TEST IS GONE"
         assert "A test noticed it when it was made" in text_plain
+        assert "`tests/test_foo.py`" in text_plain
         assert "**Next:** put back a test that fails without it." in text_plain
 
         recent.ROAST[0] = True
         _, label_roast, text_roast = recent.say(c_gone)
         assert label_roast == "⚠️ ITS TEST IS GONE"
-        assert "The test that watched this fix was deleted later, so nothing catches it now." in text_roast
+        assert "The test that watched this fix, `tests/test_foo.py`, was deleted later, so nothing catches it now." in text_roast
         assert "**Next:** put back a test that fails without it." in text_roast
 
         # Case 2: unguarded: part (PART NOT NOTICED)
@@ -26,12 +27,13 @@ def test_roast_lines_for_uncovered_results():
         _, label_plain, text_plain = recent.say(c_part)
         assert label_plain == "⚠️ PART NOT NOTICED"
         assert "Your tests noticed part of this change" in text_plain
+        assert "the boundary check" in text_plain
         assert "**Next:** add a test that fails without it." in text_plain
 
         recent.ROAST[0] = True
         _, label_roast, text_roast = recent.say(c_part)
         assert label_roast == "⚠️ PART NOT NOTICED"
-        assert "Your tests noticed part of this change, but gave the rest a free pass: if that part breaks, nothing warns you." in text_roast
+        assert "Your tests noticed part of this change, but gave the boundary check a free pass: if it breaks, nothing warns you." in text_roast
         assert "**Next:** add a test that fails without it." in text_roast
 
         # Case 3: tests fail at this commit (tests already fail)
