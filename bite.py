@@ -886,10 +886,12 @@ def guess_test_command(folder: Path) -> str:
     f = Path(folder)
     if (f / "package.json").is_file():
         try:
-            t = (_json.loads((f / "package.json").read_text(encoding="utf-8")).get("scripts") or {}).get("test", "")
+            data = _json.loads((f / "package.json").read_text(encoding="utf-8"))
+            scripts = data.get("scripts") if isinstance(data, dict) else None
+            t = scripts.get("test", "") if isinstance(scripts, dict) else ""
         except ValueError:
             t = ""
-        if t and "no test specified" not in t:
+        if isinstance(t, str) and t and "no test specified" not in t:
             return "npm test"
     if (f / "Cargo.toml").is_file():
         return "cargo test"

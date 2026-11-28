@@ -42,3 +42,36 @@ def test_pyproject_without_pytest_is_no_guess(tmp_path):
     write(tmp_path, "pyproject.toml", '[project]\nname = "demo"\n\n[tool.ruff]\nline-length = 100\n')
     write(tmp_path, "m.py")
     assert bite.guess_test_command(tmp_path) == ""
+
+
+@pytest.mark.parametrize("raw", [
+    "[]",
+    '"hello"',
+    '{"scripts": ["x"]}',
+    '{"scripts": {"test": 5}}',
+    "{ broken",
+])
+def test_non_standard_package_json_does_not_crash_and_falls_through(tmp_path, raw):
+    write(tmp_path, "package.json", raw)
+    assert bite.guess_test_command(tmp_path) == ""
+
+    write(tmp_path, "Cargo.toml", '[package]\nname = "demo"\n')
+    assert bite.guess_test_command(tmp_path) == "cargo test"
+
+
+def test_npm_cargo_and_go_guesses(tmp_path):
+    npm_dir = tmp_path / "npm_real"
+    write(npm_dir, "package.json", '{"scripts": {"test": "jest"}}')
+    assert bite.guess_test_command(npm_dir) == "npm test"
+
+    npm_init_dir = tmp_path / "npm_init"
+    write(npm_init_dir, "package.json", '{"scripts": {"test": "echo \\"Error: no test specified\\" && exit 1"}}')
+    assert bite.guess_test_command(npm_init_dir) == ""
+
+    cargo_dir = tmp_path / "cargo"
+    write(cargo_dir, "Cargo.toml", '[package]\nname = "demo"\n')
+    assert bite.guess_test_command(cargo_dir) == "cargo test"
+
+    go_dir = tmp_path / "go"
+    write(go_dir, "go.mod", "module example.com/demo\n")
+    assert bite.guess_test_command(go_dir) == "go test ./..."
